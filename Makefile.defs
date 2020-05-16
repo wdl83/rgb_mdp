@@ -1,0 +1,28 @@
+CC=clang
+
+FLAGS = \
+	-DENABLE_TRACE \
+	-DHOST \
+	-I ../ \
+	-I ../zmqpp-root/include \
+	-Os \
+	-Wall \
+	-Wextra \
+	-Wno-parentheses \
+	-Wshadow \
+	-Wunreachable-code \
+	-fomit-frame-pointer \
+	-g
+
+CXXFLAGS = \
+	$(FLAGS) \
+	-fsanitize=address \
+	-std=c++14
+
+LDFLAGS = \
+	-L ../zmqpp-root/lib \
+	-fsanitize=address \
+	-lpthread \
+	-lstdc++ \
+	-lzmq \
+	-lzmqpp
