@@ -18,51 +18,63 @@ bool inRange(V value)
 using json = nlohmann::json;
 
 /* solid RGB format
+ *
  * INPUT:
  * [
  *      {
  *          "id" : "garden_lamp0",
  *          "mode" : "solid",
  *          "RGB" : [255, 255, 255]
- *      }
+ *      },
+ *      ...
  * ]
+ *
+ * number of elements in OUTPUT array will equal to number of elements in INPUT array
+ *
  * OUTPUT:
  *  [
  *      {
- *         "device" : "/dev/ttyUSB0",
- *         "slave" : 128,
- *         "fcode" : 16,
- *         "addr" : 4221,
- *         "timeout_ms" : 500,
- *         "count" : 123,
- *         "value" : [ ... 123 RGB values ]
- *     },
- *     {
- *         "device" : "/dev/ttyUSB0",
- *         "slave" : 128,
- *         "fcode" : 16,
- *         "addr" : 4344,
- *         "timeout_ms" : 500,
- *         "count" : 123,
- *         "value" : [ ... 123 RGB values ]
- *     },
- *     {
- *         "device" : "/dev/ttyUSB0",
- *         "slave" : 128,
- *         "fcode" : 16,
- *         "addr" : 4467,
- *         "timeout_ms" : 500,
- *         "count" : 114,
- *         "value" : [ ... 114 RGB values ]
- *     },
- *     {
- *         "device" : "/dev/ttyUSB0",
- *         "slave" : 128,
- *         "fcode" : 6,
- *         "addr" : 4098,
- *         "timeout_ms" : 100,
- *         "value" : 19
- *     }
+ *         "id" : "A",
+ *         "service" : "modbus_master_/dev/ttyUSB0",
+ *          [
+ *              {
+ *                 "device" : "/dev/ttyUSB0",
+ *                 "slave" : 128,
+ *                 "fcode" : 16,
+ *                 "addr" : 4221,
+ *                 "timeout_ms" : 500,
+ *                 "count" : 123,
+ *                 "value" : [ ... 123 RGB values ]
+ *             },
+ *             {
+ *                 "device" : "/dev/ttyUSB0",
+ *                 "slave" : 128,
+ *                 "fcode" : 16,
+ *                 "addr" : 4344,
+ *                 "timeout_ms" : 500,
+ *                 "count" : 123,
+ *                 "value" : [ ... 123 RGB values ]
+ *             },
+ *             {
+ *                 "device" : "/dev/ttyUSB0",
+ *                 "slave" : 128,
+ *                 "fcode" : 16,
+ *                 "addr" : 4467,
+ *                 "timeout_ms" : 500,
+ *                 "count" : 114,
+ *                 "value" : [ ... 114 RGB values ]
+ *             },
+ *             {
+ *                 "device" : "/dev/ttyUSB0",
+ *                 "slave" : 128,
+ *                 "fcode" : 6,
+ *                 "addr" : 4098,
+ *                 "timeout_ms" : 100,
+ *                 "value" : 19
+ *             }
+ *          ]
+ *      },
+ *      ...
  *  ]
  * */
 
@@ -102,7 +114,8 @@ json convert(const json &input)
     ENSURE(input.count(ID), RuntimeError);
     ENSURE(input[ID].is_string(), RuntimeError);
 
-    const auto deviceID = toDeviceID(input[ID].get<std::string>());
+    const auto id = input[ID].get<std::string>();
+    const auto deviceID = toDeviceID(id);
 
     ENSURE(input.count(RGB), RuntimeError);
     ENSURE(input[RGB].is_array(), RuntimeError);
@@ -130,42 +143,49 @@ json convert(const json &input)
 
     return json
     {
+        {"id", id},
+        {"service", "modbus_master_" + deviceID.device},
         {
-            {DEVICE, deviceID.device},
-            {SLAVE, deviceID.slaveID},
-            {FCODE, FCODE_WR_REGISTERS},
-            {ADDR, 4221},
-            {COUNT, 123},
-            {TIMEOUT_MS, 500},
-            {VALUE, rgbSeq123}
-        },
-        {
-            {DEVICE, deviceID.device},
-            {SLAVE, deviceID.slaveID},
-            {FCODE, FCODE_WR_REGISTERS},
-            {ADDR, 4344},
-            {COUNT, 123},
-            {TIMEOUT_MS, 500},
-            {VALUE, rgbSeq123}
-        },
-        {
-            {DEVICE, deviceID.device},
-            {SLAVE, deviceID.slaveID},
-            {FCODE, FCODE_WR_REGISTERS},
-            {ADDR, 4467},
-            {COUNT, 114},
-            {TIMEOUT_MS, 500},
-            {VALUE, rgbSeq114}
-        },
-        {
-            {DEVICE, deviceID.device},
-            {SLAVE, deviceID.slaveID},
-            {FCODE, FCODE_WR_REGISTER},
-            {ADDR, 4098},
-            {TIMEOUT_MS, 100},
-            /* 0x13 */
-            {VALUE, 19}
-        },
+            "payload",
+            {
+                {
+                    {DEVICE, deviceID.device},
+                    {SLAVE, deviceID.slaveID},
+                    {FCODE, FCODE_WR_REGISTERS},
+                    {ADDR, 4221},
+                    {COUNT, 123},
+                    {TIMEOUT_MS, 500},
+                    {VALUE, rgbSeq123}
+                },
+                {
+                    {DEVICE, deviceID.device},
+                    {SLAVE, deviceID.slaveID},
+                    {FCODE, FCODE_WR_REGISTERS},
+                    {ADDR, 4344},
+                    {COUNT, 123},
+                    {TIMEOUT_MS, 500},
+                    {VALUE, rgbSeq123}
+                },
+                {
+                    {DEVICE, deviceID.device},
+                    {SLAVE, deviceID.slaveID},
+                    {FCODE, FCODE_WR_REGISTERS},
+                    {ADDR, 4467},
+                    {COUNT, 114},
+                    {TIMEOUT_MS, 500},
+                    {VALUE, rgbSeq114}
+                },
+                {
+                    {DEVICE, deviceID.device},
+                    {SLAVE, deviceID.slaveID},
+                    {FCODE, FCODE_WR_REGISTER},
+                    {ADDR, 4098},
+                    {TIMEOUT_MS, 100},
+                    /* 0x13 */
+                    {VALUE, 19}
+                },
+            }
+        }
     };
 }
 
