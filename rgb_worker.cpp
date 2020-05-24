@@ -108,6 +108,38 @@ using json = nlohmann::json;
  *      },
  *      ...
  * ]
+ *
+ * INPUT:
+ * [
+ *      {
+ *          "id" : "A",
+ *          "mode" : "off"
+ *      },
+ *      ...
+ * ]
+ *
+ * number of elements in OUTPUT array will equal to number of elements in INPUT array
+ *
+ * OUTPUT:
+ *  [
+ *      {
+ *         "id" : "A",
+ *         "service" : "modbus_master_/dev/ttyUSB0",
+ *          [
+ *              {
+
+ * *             {
+ *                 "device" : "/dev/ttyUSB0",
+ *                 "slave" : 128,
+ *                 "fcode" : 6,
+ *                 "addr" : 4098,
+ *                 "timeout_ms" : 100,
+ *                 "value" : 3
+ *             }
+ *          ]
+ *      },
+ *      ...
+ * ]
  * */
 
 const char *const ID = "id";
@@ -241,6 +273,30 @@ json parseFxFire(const DeviceID &deviceID, const json &input)
     };
 }
 
+json parseOFF(const DeviceID &deviceID, const json &input)
+{
+    (void)input;
+
+    return json
+    {
+        {"id", deviceID.id},
+        {"service", "modbus_master_" + deviceID.device},
+        {
+            "payload",
+            {
+                {
+                    {DEVICE, deviceID.device},
+                    {SLAVE, deviceID.slaveID},
+                    {FCODE, FCODE_WR_REGISTER},
+                    {ADDR, 4098},
+                    {TIMEOUT_MS, 100},
+                    {VALUE, 0x03}
+                },
+            }
+        }
+    };
+}
+
 json parse(const json &input)
 {
     ENSURE(input.is_object(), RuntimeError);
@@ -262,6 +318,10 @@ json parse(const json &input)
     else if("fx_fire" == mode)
     {
         return parseFxFire(deviceID, input);
+    }
+    else if("off" == mode)
+    {
+        return parseOFF(deviceID, input);
     }
     else ENSURE(false, RuntimeError);
 
