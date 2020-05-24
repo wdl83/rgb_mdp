@@ -22,8 +22,8 @@ using json = nlohmann::json;
  * INPUT:
  * [
  *      {
- *          "id" : "garden_lamp0",
- *          "mode" : "solid",
+ *          "id" : "A",
+ *          "mode" : "solid_rgb",
  *          "RGB" : [255, 255, 255]
  *      },
  *      ...
@@ -76,6 +76,38 @@ using json = nlohmann::json;
  *      },
  *      ...
  *  ]
+ *
+ * INPUT:
+ * [
+ *      {
+ *          "id" : "A",
+ *          "mode" : "fx_fire"
+ *      },
+ *      ...
+ * ]
+ *
+ * number of elements in OUTPUT array will equal to number of elements in INPUT array
+ *
+ * OUTPUT:
+ *  [
+ *      {
+ *         "id" : "A",
+ *         "service" : "modbus_master_/dev/ttyUSB0",
+ *          [
+ *              {
+
+ * *             {
+ *                 "device" : "/dev/ttyUSB0",
+ *                 "slave" : 128,
+ *                 "fcode" : 6,
+ *                 "addr" : 4098,
+ *                 "timeout_ms" : 100,
+ *                 "value" : 35
+ *             }
+ *          ]
+ *      },
+ *      ...
+ * ]
  * */
 
 const char *const ID = "id";
@@ -96,27 +128,24 @@ constexpr auto FCODE_WR_REGISTERS = 16;
 
 struct DeviceID
 {
-    DeviceID(std::string dev, uint8_t slave):
-        device{std::move(dev)}, slaveID{slave}
+    DeviceID(std::string name, std::string dev, uint8_t slave):
+        id{std::move(name)},
+        device{std::move(dev)},
+        slaveID{slave}
     {}
 
+    std::string id;
     std::string device;
     uint8_t slaveID;
 };
 
-DeviceID toDeviceID(const std::string &id)
+DeviceID toDeviceID(std::string id)
 {
-    return {"/dev/ttyUSB0", 128};
+    return {id, "/dev/ttyUSB0", 128};
 }
 
-json convert(const json &input)
+json parseSolidRGB(const DeviceID &deviceID, const json &input)
 {
-    ENSURE(input.count(ID), RuntimeError);
-    ENSURE(input[ID].is_string(), RuntimeError);
-
-    const auto id = input[ID].get<std::string>();
-    const auto deviceID = toDeviceID(id);
-
     ENSURE(input.count(RGB), RuntimeError);
     ENSURE(input[RGB].is_array(), RuntimeError);
 
@@ -143,7 +172,7 @@ json convert(const json &input)
 
     return json
     {
-        {"id", id},
+        {"id", deviceID.id},
         {"service", "modbus_master_" + deviceID.device},
         {
             "payload",
@@ -181,12 +210,62 @@ json convert(const json &input)
                     {FCODE, FCODE_WR_REGISTER},
                     {ADDR, 4098},
                     {TIMEOUT_MS, 100},
-                    /* 0x13 */
-                    {VALUE, 19}
+                    {VALUE, 0x13}
                 },
             }
         }
     };
+}
+
+json parseFxFire(const DeviceID &deviceID, const json &input)
+{
+    (void)input;
+
+    return json
+    {
+        {"id", deviceID.id},
+        {"service", "modbus_master_" + deviceID.device},
+        {
+            "payload",
+            {
+                {
+                    {DEVICE, deviceID.device},
+                    {SLAVE, deviceID.slaveID},
+                    {FCODE, FCODE_WR_REGISTER},
+                    {ADDR, 4098},
+                    {TIMEOUT_MS, 100},
+                    {VALUE, 0x23}
+                },
+            }
+        }
+    };
+}
+
+json parse(const json &input)
+{
+    ENSURE(input.is_object(), RuntimeError);
+    ENSURE(input.count(ID), RuntimeError);
+    ENSURE(input[ID].is_string(), RuntimeError);
+
+    const auto id = input[ID].get<std::string>();
+    const auto deviceID = toDeviceID(id);
+
+    ENSURE(input.count(MODE), RuntimeError);
+    ENSURE(input[MODE].is_string(), RuntimeError);
+
+    const auto mode = input[MODE].get<std::string>();
+
+    if("solid_rgb" == mode)
+    {
+        return parseSolidRGB(deviceID, input);
+    }
+    else if("fx_fire" == mode)
+    {
+        return parseFxFire(deviceID, input);
+    }
+    else ENSURE(false, RuntimeError);
+
+    return {};
 }
 
 void help(const char *argv0, const char *message = nullptr)
@@ -242,7 +321,7 @@ int main(int argc, char *const argv[])
                 {
                     auto input = json::parse(message.get<std::string>(i));
                     //std::cout << input.dump(2) << std::endl;
-                    output.push_back(convert(input));
+                    output.push_back(parse(input));
                 }
 
                 //std::cout << output.dump(2) << std::endl;
