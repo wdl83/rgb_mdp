@@ -16,131 +16,78 @@ bool inRange(V value)
 }
 
 using json = nlohmann::json;
-
-/* solid RGB format
+/* number of elements in OUTPUT array will equal to
+ * number of elements in INPUT array
  *
  * INPUT:
- * [
- *      {
- *          "id" : "A",
- *          "mode" : "solid_rgb",
- *          "RGB" : [255, 255, 255]
- *      },
- *      ...
- * ]
- *
- * number of elements in OUTPUT array will equal to number of elements in INPUT array
- *
+ * [{
+ *    "id" : "A",
+ *    "mode" : "solid_rgb",
+ *    "RGB" : [255, 255, 255]
+ *  }, ...]
  * OUTPUT:
- *  [
- *      {
- *         "id" : "A",
- *         "service" : "modbus_master_/dev/ttyUSB0",
- *          [
- *              {
- *                 "device" : "/dev/ttyUSB0",
- *                 "slave" : 128,
- *                 "fcode" : 16,
- *                 "addr" : 4221,
- *                 "timeout_ms" : 500,
- *                 "count" : 123,
- *                 "value" : [ ... 123 RGB values ]
- *             },
- *             {
- *                 "device" : "/dev/ttyUSB0",
- *                 "slave" : 128,
- *                 "fcode" : 16,
- *                 "addr" : 4344,
- *                 "timeout_ms" : 500,
- *                 "count" : 123,
- *                 "value" : [ ... 123 RGB values ]
- *             },
- *             {
- *                 "device" : "/dev/ttyUSB0",
- *                 "slave" : 128,
- *                 "fcode" : 16,
- *                 "addr" : 4467,
- *                 "timeout_ms" : 500,
- *                 "count" : 114,
- *                 "value" : [ ... 114 RGB values ]
- *             },
- *             {
- *                 "device" : "/dev/ttyUSB0",
- *                 "slave" : 128,
- *                 "fcode" : 6,
- *                 "addr" : 4098,
- *                 "timeout_ms" : 100,
- *                 "value" : 19
- *             }
- *          ]
- *      },
- *      ...
- *  ]
- *
+ *  [{
+ *     "id" : "A",
+ *     "service" : "modbus_master_/dev/ttyUSB0",
+ *     [
+ *       {
+ *         "device" : "/dev/ttyUSB0",
+ *         "slave" : 128,
+ *         "fcode" : 16,
+ *         "addr" : 4101,
+ *         "timeout_ms" : 500,
+ *         "count" : 123,
+ *         "value" : [ ... 123 RGB values ]
+ *       },
+ *       {
+ *         "device" : "/dev/ttyUSB0",
+ *         "slave" : 128,
+ *         "fcode" : 16,
+ *         "addr" : 4224,
+ *         "timeout_ms" : 500,
+ *         "count" : 123,
+ *         "value" : [ ... 123 RGB values ]
+ *       },
+ *       {
+ *         "device" : "/dev/ttyUSB0",
+ *         "slave" : 128,
+ *         "fcode" : 16,
+ *         "addr" : 4347,
+ *         "timeout_ms" : 500,
+ *         "count" : 114,
+ *         "value" : [ ... 114 RGB values ]
+ *       },
+ *       {
+ *         "device" : "/dev/ttyUSB0",
+ *         "slave" : 128,
+ *         "fcode" : 6,
+ *         "addr" : 4098,
+ *         "timeout_ms" : 100,
+ *         "value" : 19
+ *       }
+ *     ]
+ *  }, ...]
  * INPUT:
- * [
- *      {
- *          "id" : "A",
- *          "mode" : "fx_fire"
- *      },
- *      ...
- * ]
- *
- * number of elements in OUTPUT array will equal to number of elements in INPUT array
- *
+ * [{
+ *    "id" : "A",
+ *    "mode" : "fx_fire | fx_torch | off"
+ *  }, ...]
  * OUTPUT:
- *  [
+ * [{
+ *    "id" : "A",
+ *    "service" : "modbus_master_/dev/ttyUSB0",
+ *    [
  *      {
- *         "id" : "A",
- *         "service" : "modbus_master_/dev/ttyUSB0",
- *          [
- *              {
-
- * *             {
- *                 "device" : "/dev/ttyUSB0",
- *                 "slave" : 128,
- *                 "fcode" : 6,
- *                 "addr" : 4098,
- *                 "timeout_ms" : 100,
- *                 "value" : 35
- *             }
- *          ]
- *      },
- *      ...
- * ]
- *
- * INPUT:
- * [
- *      {
- *          "id" : "A",
- *          "mode" : "off"
- *      },
- *      ...
- * ]
- *
- * number of elements in OUTPUT array will equal to number of elements in INPUT array
- *
- * OUTPUT:
- *  [
- *      {
- *         "id" : "A",
- *         "service" : "modbus_master_/dev/ttyUSB0",
- *          [
- *              {
-
- * *             {
- *                 "device" : "/dev/ttyUSB0",
- *                 "slave" : 128,
- *                 "fcode" : 6,
- *                 "addr" : 4098,
- *                 "timeout_ms" : 100,
- *                 "value" : 3
- *             }
- *          ]
- *      },
- *      ...
- * ]
- * */
+ *        "device" : "/dev/ttyUSB0",
+ *        "slave" : 128,
+ *        "fcode" : 6,
+ *        "addr" : 4098,
+ *        "timeout_ms" : 100,
+ *        "value" : 35 (fx_fire) | 51 (fx_torch) | 3 (off)
+ *      }
+ *    ]
+ * },...]
+ */
 
 const char *const ID = "id";
 const char *const MODE = "mode";
@@ -176,7 +123,7 @@ DeviceID toDeviceID(std::string id)
     return {id, "/dev/ttyUSB0", 128};
 }
 
-json parseSolidRGB(const DeviceID &deviceID, const json &input)
+json generateSolidRGB(const DeviceID &deviceID, const json &input)
 {
     ENSURE(input.count(RGB), RuntimeError);
     ENSURE(input[RGB].is_array(), RuntimeError);
@@ -213,7 +160,7 @@ json parseSolidRGB(const DeviceID &deviceID, const json &input)
                     {DEVICE, deviceID.device},
                     {SLAVE, deviceID.slaveID},
                     {FCODE, FCODE_WR_REGISTERS},
-                    {ADDR, 4221},
+                    {ADDR, 4101},
                     {COUNT, 123},
                     {TIMEOUT_MS, 500},
                     {VALUE, rgbSeq123}
@@ -222,7 +169,7 @@ json parseSolidRGB(const DeviceID &deviceID, const json &input)
                     {DEVICE, deviceID.device},
                     {SLAVE, deviceID.slaveID},
                     {FCODE, FCODE_WR_REGISTERS},
-                    {ADDR, 4344},
+                    {ADDR, 4224},
                     {COUNT, 123},
                     {TIMEOUT_MS, 500},
                     {VALUE, rgbSeq123}
@@ -231,7 +178,7 @@ json parseSolidRGB(const DeviceID &deviceID, const json &input)
                     {DEVICE, deviceID.device},
                     {SLAVE, deviceID.slaveID},
                     {FCODE, FCODE_WR_REGISTERS},
-                    {ADDR, 4467},
+                    {ADDR, 4347},
                     {COUNT, 114},
                     {TIMEOUT_MS, 500},
                     {VALUE, rgbSeq114}
@@ -249,7 +196,7 @@ json parseSolidRGB(const DeviceID &deviceID, const json &input)
     };
 }
 
-json parseFxFire(const DeviceID &deviceID, const json &input)
+json generateFx(const DeviceID &deviceID, const json &input, uint8_t value)
 {
     (void)input;
 
@@ -266,31 +213,7 @@ json parseFxFire(const DeviceID &deviceID, const json &input)
                     {FCODE, FCODE_WR_REGISTER},
                     {ADDR, 4098},
                     {TIMEOUT_MS, 100},
-                    {VALUE, 0x23}
-                },
-            }
-        }
-    };
-}
-
-json parseOFF(const DeviceID &deviceID, const json &input)
-{
-    (void)input;
-
-    return json
-    {
-        {"id", deviceID.id},
-        {"service", "modbus_master_" + deviceID.device},
-        {
-            "payload",
-            {
-                {
-                    {DEVICE, deviceID.device},
-                    {SLAVE, deviceID.slaveID},
-                    {FCODE, FCODE_WR_REGISTER},
-                    {ADDR, 4098},
-                    {TIMEOUT_MS, 100},
-                    {VALUE, 0x03}
+                    {VALUE, value}
                 },
             }
         }
@@ -313,15 +236,19 @@ json parse(const json &input)
 
     if("solid_rgb" == mode)
     {
-        return parseSolidRGB(deviceID, input);
+        return generateSolidRGB(deviceID, input);
     }
     else if("fx_fire" == mode)
     {
-        return parseFxFire(deviceID, input);
+        return generateFx(deviceID, input, 0x23);
+    }
+    else if("fx_torch" == mode)
+    {
+        return generateFx(deviceID, input, 0x33);
     }
     else if("off" == mode)
     {
-        return parseOFF(deviceID, input);
+        return generateFx(deviceID, input, 0x3);
     }
     else ENSURE(false, RuntimeError);
 
