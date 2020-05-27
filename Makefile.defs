@@ -1,7 +1,6 @@
 CC=clang
 
 FLAGS = \
-	-DENABLE_TRACE \
 	-DHOST \
 	-I ../ \
 	-I ../zmqpp-root/include \
@@ -14,15 +13,24 @@ FLAGS = \
 	-fomit-frame-pointer \
 	-g
 
+ifndef RELEASE
+	FLAGS +=  \
+		-DENABLE_TRACE \
+		-fsanitize=address
+endif
+
 CXXFLAGS = \
 	$(FLAGS) \
-	-fsanitize=address \
 	-std=c++14
 
 LDFLAGS = \
 	-L ../zmqpp-root/lib \
-	-fsanitize=address \
 	-lpthread \
 	-lstdc++ \
 	-lzmq \
 	-lzmqpp
+
+ifndef RELEASE
+	LDFLAGS += \
+		-fsanitize=address
+endif

@@ -8,7 +8,6 @@ TARGET = rgb_worker
 # CSRCS =
 
 CXXSRCS = \
-	../mdp/Worker.cpp \
 	../mdp/MutualHeartbeatMonitor.cpp \
 	../mdp/Worker.cpp \
 	../mdp/WorkerTask.cpp \

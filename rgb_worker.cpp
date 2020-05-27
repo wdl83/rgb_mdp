@@ -23,12 +23,14 @@ using json = nlohmann::json;
  * [{
  *    "id" : "A",
  *    "mode" : "solid_rgb",
+ *    "brightness" : brightness
  *    "RGB" : [255, 255, 255]
  *  }, ...]
  * OUTPUT:
  *  [{
  *     "id" : "A",
  *     "service" : "modbus_master_/dev/ttyUSB0",
+ *    "payload":
  *     [
  *       {
  *         "device" : "/dev/ttyUSB0",
@@ -61,6 +63,14 @@ using json = nlohmann::json;
  *         "device" : "/dev/ttyUSB0",
  *         "slave" : 128,
  *         "fcode" : 6,
+ *         "addr" : 4706
+ *         "timeout_ms" : 100,
+ *         "value" : brightness
+ *       }
+ *       {
+ *         "device" : "/dev/ttyUSB0",
+ *         "slave" : 128,
+ *         "fcode" : 6,
  *         "addr" : 4098,
  *         "timeout_ms" : 100,
  *         "value" : 19
@@ -76,6 +86,7 @@ using json = nlohmann::json;
  * [{
  *    "id" : "A",
  *    "service" : "modbus_master_/dev/ttyUSB0",
+ *    "payload":
  *    [
  *      {
  *        "device" : "/dev/ttyUSB0",
@@ -89,17 +100,20 @@ using json = nlohmann::json;
  * },...]
  */
 
+const char *const BRIGHTNESS = "brightness";
 const char *const ID = "id";
 const char *const MODE = "mode";
+const char *const PAYLOAD = "payload";
 const char *const RGB = "RGB";
+const char *const SERVICE = "service";
 
-const char *const DEVICE = "device";
-const char *const SLAVE = "slave";
-const char *const FCODE = "fcode";
-const char *const COUNT = "count";
 const char *const ADDR = "addr";
-const char *const VALUE = "value";
+const char *const COUNT = "count";
+const char *const DEVICE = "device";
+const char *const FCODE = "fcode";
+const char *const SLAVE = "slave";
 const char *const TIMEOUT_MS = "timeout_ms";
+const char *const VALUE = "value";
 
 constexpr auto FCODE_RD_HOLDING_REGISTERS = 3;
 constexpr auto FCODE_WR_REGISTER = 6;
@@ -120,6 +134,7 @@ struct DeviceID
 
 DeviceID toDeviceID(std::string id)
 {
+    /* TODO: provide json config file */
     return {id, "/dev/ttyUSB0", 128};
 }
 
@@ -151,10 +166,10 @@ json generateSolidRGB(const DeviceID &deviceID, const json &input)
 
     return json
     {
-        {"id", deviceID.id},
-        {"service", "modbus_master_" + deviceID.device},
+        {ID, deviceID.id},
+        {SERVICE, "modbus_master_" + deviceID.device},
         {
-            "payload",
+            PAYLOAD,
             {
                 {
                     {DEVICE, deviceID.device},
@@ -202,10 +217,10 @@ json generateFx(const DeviceID &deviceID, const json &input, uint8_t value)
 
     return json
     {
-        {"id", deviceID.id},
-        {"service", "modbus_master_" + deviceID.device},
+        {ID, deviceID.id},
+        {SERVICE, "modbus_master_" + deviceID.device},
         {
-            "payload",
+            PAYLOAD,
             {
                 {
                     {DEVICE, deviceID.device},
@@ -218,6 +233,27 @@ json generateFx(const DeviceID &deviceID, const json &input, uint8_t value)
             }
         }
     };
+}
+
+void addBrightness(const DeviceID &deviceID, const json &input, json &output)
+{
+    if(!input.count(BRIGHTNESS)) return;
+
+    ENSURE(input[BRIGHTNESS].is_number(), RuntimeError);
+
+    const auto brightness = input[BRIGHTNESS].get<int>();
+
+    ENSURE(inRange<uint8_t>(brightness), RuntimeError);
+
+    output[PAYLOAD].push_back(
+        {
+            {DEVICE, deviceID.device},
+            {SLAVE, deviceID.slaveID},
+            {FCODE, FCODE_WR_REGISTER},
+            {ADDR, 4706},
+            {TIMEOUT_MS, 100},
+            {VALUE, brightness}
+        });
 }
 
 json parse(const json &input)
@@ -233,26 +269,29 @@ json parse(const json &input)
     ENSURE(input[MODE].is_string(), RuntimeError);
 
     const auto mode = input[MODE].get<std::string>();
+    json output;
 
     if("solid_rgb" == mode)
     {
-        return generateSolidRGB(deviceID, input);
+        output = generateSolidRGB(deviceID, input);
     }
     else if("fx_fire" == mode)
     {
-        return generateFx(deviceID, input, 0x23);
+        output = generateFx(deviceID, input, 0x23);
     }
     else if("fx_torch" == mode)
     {
-        return generateFx(deviceID, input, 0x33);
+        output = generateFx(deviceID, input, 0x33);
     }
     else if("off" == mode)
     {
-        return generateFx(deviceID, input, 0x3);
+        output = generateFx(deviceID, input, 0x3);
     }
     else ENSURE(false, RuntimeError);
 
-    return {};
+    addBrightness(deviceID, input, output);
+
+    return output;
 }
 
 void help(const char *argv0, const char *message = nullptr)
