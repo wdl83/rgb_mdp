@@ -138,7 +138,7 @@ DeviceID toDeviceID(std::string id)
     return {id, "/dev/ttyUSB0", 128};
 }
 
-json generateSolidRGB(const DeviceID &deviceID, const json &input)
+void addSolidRGB(const DeviceID &deviceID, const json &input, json &output)
 {
     ENSURE(input.count(RGB), RuntimeError);
     ENSURE(input[RGB].is_array(), RuntimeError);
@@ -164,75 +164,51 @@ json generateSolidRGB(const DeviceID &deviceID, const json &input)
         std::begin(rgbSeq114), std::end(rgbSeq114),
         [&rgb, n = 0]() mutable {return rgb[n++ % 3];});
 
-    return json
-    {
-        {ID, deviceID.id},
-        {SERVICE, "modbus_master_" + deviceID.device},
+    output[PAYLOAD].push_back(
         {
-            PAYLOAD,
-            {
-                {
-                    {DEVICE, deviceID.device},
-                    {SLAVE, deviceID.slaveID},
-                    {FCODE, FCODE_WR_REGISTERS},
-                    {ADDR, 4101},
-                    {COUNT, 123},
-                    {TIMEOUT_MS, 500},
-                    {VALUE, rgbSeq123}
-                },
-                {
-                    {DEVICE, deviceID.device},
-                    {SLAVE, deviceID.slaveID},
-                    {FCODE, FCODE_WR_REGISTERS},
-                    {ADDR, 4224},
-                    {COUNT, 123},
-                    {TIMEOUT_MS, 500},
-                    {VALUE, rgbSeq123}
-                },
-                {
-                    {DEVICE, deviceID.device},
-                    {SLAVE, deviceID.slaveID},
-                    {FCODE, FCODE_WR_REGISTERS},
-                    {ADDR, 4347},
-                    {COUNT, 114},
-                    {TIMEOUT_MS, 500},
-                    {VALUE, rgbSeq114}
-                },
-                {
-                    {DEVICE, deviceID.device},
-                    {SLAVE, deviceID.slaveID},
-                    {FCODE, FCODE_WR_REGISTER},
-                    {ADDR, 4098},
-                    {TIMEOUT_MS, 100},
-                    {VALUE, 0x13}
-                },
-            }
-        }
-    };
+            {DEVICE, deviceID.device},
+            {SLAVE, deviceID.slaveID},
+            {FCODE, FCODE_WR_REGISTERS},
+            {ADDR, 4101},
+            {COUNT, 123},
+            {TIMEOUT_MS, 500},
+            {VALUE, rgbSeq123}
+        });
+    output[PAYLOAD].push_back(
+        {
+            {DEVICE, deviceID.device},
+            {SLAVE, deviceID.slaveID},
+            {FCODE, FCODE_WR_REGISTERS},
+            {ADDR, 4224},
+            {COUNT, 123},
+            {TIMEOUT_MS, 500},
+            {VALUE, rgbSeq123}
+        });
+    output[PAYLOAD].push_back(
+        {
+            {DEVICE, deviceID.device},
+            {SLAVE, deviceID.slaveID},
+            {FCODE, FCODE_WR_REGISTERS},
+            {ADDR, 4347},
+            {COUNT, 114},
+            {TIMEOUT_MS, 500},
+            {VALUE, rgbSeq114}
+        });
 }
 
-json generateFx(const DeviceID &deviceID, const json &input, uint8_t value)
+void addMode(const DeviceID &deviceID, const json &input, json &output, uint8_t value)
 {
     (void)input;
 
-    return json
-    {
-        {ID, deviceID.id},
-        {SERVICE, "modbus_master_" + deviceID.device},
+    output[PAYLOAD].push_back(
         {
-            PAYLOAD,
-            {
-                {
-                    {DEVICE, deviceID.device},
-                    {SLAVE, deviceID.slaveID},
-                    {FCODE, FCODE_WR_REGISTER},
-                    {ADDR, 4098},
-                    {TIMEOUT_MS, 100},
-                    {VALUE, value}
-                },
-            }
-        }
-    };
+            {DEVICE, deviceID.device},
+            {SLAVE, deviceID.slaveID},
+            {FCODE, FCODE_WR_REGISTER},
+            {ADDR, 4098},
+            {TIMEOUT_MS, 100},
+            {VALUE, value}
+        });
 }
 
 void addBrightness(const DeviceID &deviceID, const json &input, json &output)
@@ -269,27 +245,37 @@ json parse(const json &input)
     ENSURE(input[MODE].is_string(), RuntimeError);
 
     const auto mode = input[MODE].get<std::string>();
-    json output;
+
+    json output
+    {
+        {ID, deviceID.id},
+        {SERVICE, "modbus_master_" + deviceID.device},
+        {
+            PAYLOAD, json::array()
+        }
+    };
+
+    addBrightness(deviceID, input, output);
 
     if("solid_rgb" == mode)
     {
-        output = generateSolidRGB(deviceID, input);
+        addSolidRGB(deviceID, input, output);
+        addMode(deviceID, input, output, 0x13);
     }
     else if("fx_fire" == mode)
     {
-        output = generateFx(deviceID, input, 0x23);
+        addMode(deviceID, input, output, 0x23);
     }
     else if("fx_torch" == mode)
     {
-        output = generateFx(deviceID, input, 0x33);
+        addMode(deviceID, input, output, 0x33);
     }
     else if("off" == mode)
     {
-        output = generateFx(deviceID, input, 0x3);
+        addMode(deviceID, input, output, 0x03);
     }
     else ENSURE(false, RuntimeError);
 
-    addBrightness(deviceID, input, output);
 
     return output;
 }
