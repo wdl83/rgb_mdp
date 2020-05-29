@@ -63,7 +63,7 @@ using json = nlohmann::json;
  *         "device" : "/dev/ttyUSB0",
  *         "slave" : 128,
  *         "fcode" : 6,
- *         "addr" : 4706
+ *         "addr" : 4466
  *         "timeout_ms" : 100,
  *         "value" : brightness
  *       }
@@ -226,7 +226,7 @@ void addBrightness(const DeviceID &deviceID, const json &input, json &output)
             {DEVICE, deviceID.device},
             {SLAVE, deviceID.slaveID},
             {FCODE, FCODE_WR_REGISTER},
-            {ADDR, 4706},
+            {ADDR, 4466},
             {TIMEOUT_MS, 100},
             {VALUE, brightness}
         });
