@@ -23,7 +23,8 @@ using json = nlohmann::json;
  * [{
  *    "id" : "A",
  *    "mode" : "solid_rgb",
- *    "brightness" : brightness
+ *    "brightness" : brightness,
+ *    "fps": fps,
  *    "RGB" : [255, 255, 255]
  *  }, ...]
  * OUTPUT:
@@ -66,7 +67,23 @@ using json = nlohmann::json;
  *         "addr" : 4466
  *         "timeout_ms" : 100,
  *         "value" : brightness
- *       }
+ *       },
+ *       {
+ *         "device" : "/dev/ttyUSB0",
+ *         "slave" : 128,
+ *         "fcode" : 6,
+ *         "addr" : 4099
+ *         "timeout_ms" : 100,
+ *         "value" : fps_low_byte
+ *       },
+ *       {
+ *         "device" : "/dev/ttyUSB0",
+ *         "slave" : 128,
+ *         "fcode" : 6,
+ *         "addr" : 4100
+ *         "timeout_ms" : 100,
+ *         "value" : tmr1_A_high_byte
+ *       },
  *       {
  *         "device" : "/dev/ttyUSB0",
  *         "slave" : 128,
@@ -101,6 +118,7 @@ using json = nlohmann::json;
  */
 
 const char *const BRIGHTNESS = "brightness";
+const char *const FPS = "fps";
 const char *const ID = "id";
 const char *const MODE = "mode";
 const char *const PAYLOAD = "payload";
@@ -232,6 +250,39 @@ void addBrightness(const DeviceID &deviceID, const json &input, json &output)
         });
 }
 
+void addFPS(const DeviceID &deviceID, const json &input, json &output)
+{
+    if(!input.count(FPS)) return;
+
+    ENSURE(input[FPS].is_number(), RuntimeError);
+
+    const auto fps = input[FPS].get<int>();
+
+    ENSURE(3 < fps, RuntimeError);
+    ENSURE(241 > fps, RuntimeError);
+
+    const uint16_t tmrValue = 1000000 / (fps << 2);
+
+    output[PAYLOAD].push_back(
+        {
+            {DEVICE, deviceID.device},
+            {SLAVE, deviceID.slaveID},
+            {FCODE, FCODE_WR_REGISTER},
+            {ADDR, 4099},
+            {TIMEOUT_MS, 100},
+            {VALUE, uint8_t(tmrValue & 0xFF)}
+        });
+    output[PAYLOAD].push_back(
+        {
+            {DEVICE, deviceID.device},
+            {SLAVE, deviceID.slaveID},
+            {FCODE, FCODE_WR_REGISTER},
+            {ADDR, 4100},
+            {TIMEOUT_MS, 100},
+            {VALUE, uint8_t(tmrValue >> 8)}
+        });
+}
+
 json parse(const json &input)
 {
     ENSURE(input.is_object(), RuntimeError);
@@ -256,6 +307,7 @@ json parse(const json &input)
     };
 
     addBrightness(deviceID, input, output);
+    addFPS(deviceID, input, output);
 
     if("solid_rgb" == mode)
     {
