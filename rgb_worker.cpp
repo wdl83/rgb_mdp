@@ -1,4 +1,6 @@
 #include <iostream>
+#include <chrono>
+
 #include <unistd.h>
 
 #include <nlohmann/json.hpp>
@@ -16,106 +18,6 @@ bool inRange(V value)
 }
 
 using json = nlohmann::json;
-/* number of elements in OUTPUT array will equal to
- * number of elements in INPUT array
- *
- * INPUT:
- * [{
- *    "id" : "A",
- *    "mode" : "solid_rgb",
- *    "brightness" : brightness,
- *    "fps": fps,
- *    "RGB" : [255, 255, 255]
- *  }, ...]
- * OUTPUT:
- *  [{
- *     "id" : "A",
- *     "service" : "modbus_master_/dev/ttyUSB0",
- *    "payload":
- *     [
- *       {
- *         "device" : "/dev/ttyUSB0",
- *         "slave" : 128,
- *         "fcode" : 16,
- *         "addr" : 4101,
- *         "timeout_ms" : 500,
- *         "count" : 123,
- *         "value" : [ ... 123 RGB values ]
- *       },
- *       {
- *         "device" : "/dev/ttyUSB0",
- *         "slave" : 128,
- *         "fcode" : 16,
- *         "addr" : 4224,
- *         "timeout_ms" : 500,
- *         "count" : 123,
- *         "value" : [ ... 123 RGB values ]
- *       },
- *       {
- *         "device" : "/dev/ttyUSB0",
- *         "slave" : 128,
- *         "fcode" : 16,
- *         "addr" : 4347,
- *         "timeout_ms" : 500,
- *         "count" : 114,
- *         "value" : [ ... 114 RGB values ]
- *       },
- *       {
- *         "device" : "/dev/ttyUSB0",
- *         "slave" : 128,
- *         "fcode" : 6,
- *         "addr" : 4466
- *         "timeout_ms" : 100,
- *         "value" : brightness
- *       },
- *       {
- *         "device" : "/dev/ttyUSB0",
- *         "slave" : 128,
- *         "fcode" : 6,
- *         "addr" : 4099
- *         "timeout_ms" : 100,
- *         "value" : fps_low_byte
- *       },
- *       {
- *         "device" : "/dev/ttyUSB0",
- *         "slave" : 128,
- *         "fcode" : 6,
- *         "addr" : 4100
- *         "timeout_ms" : 100,
- *         "value" : tmr1_A_high_byte
- *       },
- *       {
- *         "device" : "/dev/ttyUSB0",
- *         "slave" : 128,
- *         "fcode" : 6,
- *         "addr" : 4098,
- *         "timeout_ms" : 100,
- *         "value" : 19
- *       }
- *     ]
- *  }, ...]
- * INPUT:
- * [{
- *    "id" : "A",
- *    "mode" : "fx_fire | fx_torch | off"
- *  }, ...]
- * OUTPUT:
- * [{
- *    "id" : "A",
- *    "service" : "modbus_master_/dev/ttyUSB0",
- *    "payload":
- *    [
- *      {
- *        "device" : "/dev/ttyUSB0",
- *        "slave" : 128,
- *        "fcode" : 6,
- *        "addr" : 4098,
- *        "timeout_ms" : 100,
- *        "value" : 35 (fx_fire) | 51 (fx_torch) | 3 (off)
- *      }
- *    ]
- * },...]
- */
 
 const char *const BRIGHTNESS = "brightness";
 const char *const FPS = "fps";
@@ -124,6 +26,7 @@ const char *const MODE = "mode";
 const char *const PAYLOAD = "payload";
 const char *const RGB = "RGB";
 const char *const SERVICE = "service";
+const char *const TORCH_SPARK_THRESHOLD = "torch_spark_threshold";
 
 const char *const ADDR = "addr";
 const char *const COUNT = "count";
@@ -137,6 +40,13 @@ constexpr auto FCODE_RD_HOLDING_REGISTERS = 3;
 constexpr auto FCODE_WR_REGISTER = 6;
 constexpr auto FCODE_WR_REGISTERS = 16;
 
+constexpr uint8_t FLAG_UPDATED = 0x1;
+constexpr uint8_t FLAG_REFRESH = 0x2;
+constexpr uint8_t FX_NONE = 0 << 4;
+constexpr uint8_t FX_STATIC = 1 << 4;
+constexpr uint8_t FX_FIRE = 2 << 4;
+constexpr uint8_t FX_TORCH = 3 << 4;
+
 struct DeviceID
 {
     DeviceID(std::string name, std::string dev, uint8_t slave):
@@ -144,6 +54,11 @@ struct DeviceID
         device{std::move(dev)},
         slaveID{slave}
     {}
+
+    uint16_t calcADDR(uint16_t offset) const
+    {
+        return 0x1000 + offset;
+    }
 
     std::string id;
     std::string device;
@@ -154,6 +69,52 @@ DeviceID toDeviceID(std::string id)
 {
     /* TODO: provide json config file */
     return {id, "/dev/ttyUSB0", 128};
+}
+
+using milliseconds = std::chrono::milliseconds;
+
+int count(const uint8_t &){return 1;}
+
+template <typename T>
+int count(const std::vector<T> &seq) {return seq.size();}
+
+template <typename T>
+void add(
+    const DeviceID &deviceID,
+    json &output,
+    uint16_t addr,
+    T value,
+    milliseconds timeout = milliseconds{100})
+{
+    const auto num = count(value);
+
+    output[PAYLOAD].push_back(
+        {
+            {DEVICE, deviceID.device},
+            {SLAVE, deviceID.slaveID},
+            {FCODE, 1 == num ? FCODE_WR_REGISTER : FCODE_WR_REGISTERS},
+            {ADDR, addr},
+            {TIMEOUT_MS, timeout.count()},
+            {COUNT, count(value)},
+            {VALUE, value}
+        });
+}
+
+void add(
+    const DeviceID &deviceID,
+    const json &input, json &output,
+    const char *tag,
+    uint16_t addr)
+{
+    if(!input.count(tag)) return;
+
+    ENSURE(input[tag].is_number(), RuntimeError);
+
+    const auto value = input[tag].get<int>();
+
+    ENSURE(inRange<uint8_t>(value), RuntimeError);
+
+    add(deviceID, output, addr, value);
 }
 
 void addSolidRGB(const DeviceID &deviceID, const json &input, json &output)
@@ -182,72 +143,9 @@ void addSolidRGB(const DeviceID &deviceID, const json &input, json &output)
         std::begin(rgbSeq114), std::end(rgbSeq114),
         [&rgb, n = 0]() mutable {return rgb[n++ % 3];});
 
-    output[PAYLOAD].push_back(
-        {
-            {DEVICE, deviceID.device},
-            {SLAVE, deviceID.slaveID},
-            {FCODE, FCODE_WR_REGISTERS},
-            {ADDR, 4101},
-            {COUNT, 123},
-            {TIMEOUT_MS, 500},
-            {VALUE, rgbSeq123}
-        });
-    output[PAYLOAD].push_back(
-        {
-            {DEVICE, deviceID.device},
-            {SLAVE, deviceID.slaveID},
-            {FCODE, FCODE_WR_REGISTERS},
-            {ADDR, 4224},
-            {COUNT, 123},
-            {TIMEOUT_MS, 500},
-            {VALUE, rgbSeq123}
-        });
-    output[PAYLOAD].push_back(
-        {
-            {DEVICE, deviceID.device},
-            {SLAVE, deviceID.slaveID},
-            {FCODE, FCODE_WR_REGISTERS},
-            {ADDR, 4347},
-            {COUNT, 114},
-            {TIMEOUT_MS, 500},
-            {VALUE, rgbSeq114}
-        });
-}
-
-void addMode(const DeviceID &deviceID, const json &input, json &output, uint8_t value)
-{
-    (void)input;
-
-    output[PAYLOAD].push_back(
-        {
-            {DEVICE, deviceID.device},
-            {SLAVE, deviceID.slaveID},
-            {FCODE, FCODE_WR_REGISTER},
-            {ADDR, 4098},
-            {TIMEOUT_MS, 100},
-            {VALUE, value}
-        });
-}
-
-void addBrightness(const DeviceID &deviceID, const json &input, json &output)
-{
-    if(!input.count(BRIGHTNESS)) return;
-
-    ENSURE(input[BRIGHTNESS].is_number(), RuntimeError);
-
-    const auto brightness = input[BRIGHTNESS].get<int>();
-
-    ENSURE(inRange<uint8_t>(brightness), RuntimeError);
-
-    output[PAYLOAD].push_back(
-        {
-            {DEVICE, deviceID.device},
-            {SLAVE, deviceID.slaveID},
-            {FCODE, FCODE_WR_REGISTER},
-            {ADDR, 4466},
-            {TIMEOUT_MS, 100},
-            {VALUE, brightness}
-        });
+    add(deviceID, output, deviceID.calcADDR(5), rgbSeq123, milliseconds{500});
+    add(deviceID, output, deviceID.calcADDR(128), rgbSeq123, milliseconds{500});
+    add(deviceID, output, deviceID.calcADDR(251), rgbSeq114, milliseconds{500});
 }
 
 void addFPS(const DeviceID &deviceID, const json &input, json &output)
@@ -263,24 +161,9 @@ void addFPS(const DeviceID &deviceID, const json &input, json &output)
 
     const uint16_t tmrValue = 1000000 / (fps << 2);
 
-    output[PAYLOAD].push_back(
-        {
-            {DEVICE, deviceID.device},
-            {SLAVE, deviceID.slaveID},
-            {FCODE, FCODE_WR_REGISTER},
-            {ADDR, 4099},
-            {TIMEOUT_MS, 100},
-            {VALUE, uint8_t(tmrValue & 0xFF)}
-        });
-    output[PAYLOAD].push_back(
-        {
-            {DEVICE, deviceID.device},
-            {SLAVE, deviceID.slaveID},
-            {FCODE, FCODE_WR_REGISTER},
-            {ADDR, 4100},
-            {TIMEOUT_MS, 100},
-            {VALUE, uint8_t(tmrValue >> 8)}
-        });
+    std::vector<uint8_t> seq{uint8_t(tmrValue & 0xFF), uint8_t(tmrValue >> 8)};
+
+    add(deviceID, output, deviceID.calcADDR(3), seq);
 }
 
 json parse(const json &input)
@@ -306,28 +189,49 @@ json parse(const json &input)
         }
     };
 
-    addBrightness(deviceID, input, output);
+    add(deviceID, input, output, BRIGHTNESS, deviceID.calcADDR(370));
     addFPS(deviceID, input, output);
 
     if("solid_rgb" == mode)
     {
         addSolidRGB(deviceID, input, output);
-        addMode(deviceID, input, output, 0x13);
+        add(
+            deviceID,
+            output,
+            deviceID.calcADDR(2),
+            FX_STATIC | FLAG_REFRESH | FLAG_UPDATED);
     }
     else if("fx_fire" == mode)
     {
-        addMode(deviceID, input, output, 0x23);
+        add(
+            deviceID,
+            output,
+            deviceID.calcADDR(2),
+            FX_FIRE | FLAG_REFRESH | FLAG_UPDATED);
     }
     else if("fx_torch" == mode)
     {
-        addMode(deviceID, input, output, 0x33);
+        add(
+            deviceID,
+            output,
+            deviceID.calcADDR(2),
+            FX_TORCH | FLAG_REFRESH | FLAG_UPDATED);
+
+        add(
+            deviceID,
+            input, output,
+            TORCH_SPARK_THRESHOLD,
+            deviceID.calcADDR(509));
     }
     else if("off" == mode)
     {
-        addMode(deviceID, input, output, 0x03);
+        add(
+            deviceID,
+            output,
+            deviceID.calcADDR(2),
+            FX_NONE | FLAG_REFRESH | FLAG_UPDATED);
     }
     else ENSURE(false, RuntimeError);
-
 
     return output;
 }
