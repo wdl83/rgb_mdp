@@ -26,7 +26,11 @@ const char *const MODE = "mode";
 const char *const PAYLOAD = "payload";
 const char *const RGB = "RGB";
 const char *const SERVICE = "service";
+
 const char *const TORCH_SPARK_THRESHOLD = "torch_spark_threshold";
+const char *const TORCH_PASSIVE_RETENTION = "torch_passive_retention";
+const char *const TORCH_ADJ_H = "torch_adj_h";
+const char *const TORCH_ADJ_V = "torch_adj_v";
 
 const char *const ADDR = "addr";
 const char *const COUNT = "count";
@@ -217,11 +221,10 @@ json parse(const json &input)
             deviceID.calcADDR(2),
             FX_TORCH | FLAG_REFRESH | FLAG_UPDATED);
 
-        add(
-            deviceID,
-            input, output,
-            TORCH_SPARK_THRESHOLD,
-            deviceID.calcADDR(509));
+        add(deviceID, input, output, TORCH_SPARK_THRESHOLD, deviceID.calcADDR(509));
+        add(deviceID, input, output, TORCH_ADJ_H, deviceID.calcADDR(510));
+        add(deviceID, input, output, TORCH_ADJ_V, deviceID.calcADDR(511));
+        add(deviceID, input, output, TORCH_PASSIVE_RETENTION, deviceID.calcADDR(512));
     }
     else if("off" == mode)
     {
