@@ -31,6 +31,7 @@ const char *const TORCH_SPARK_THRESHOLD = "torch_spark_threshold";
 const char *const TORCH_PASSIVE_RETENTION = "torch_passive_retention";
 const char *const TORCH_ADJ_H = "torch_adj_h";
 const char *const TORCH_ADJ_V = "torch_adj_v";
+const char *const TORCH_COLOR_COEFF = "torch_color_coeff";
 
 const char *const ADDR = "addr";
 const char *const COUNT = "count";
@@ -170,6 +171,24 @@ void addFPS(const DeviceID &deviceID, const json &input, json &output)
     add(deviceID, output, deviceID.calcADDR(3), seq);
 }
 
+void addTorchColorCoeff(const DeviceID &deviceID, const json &input, json &output)
+{
+    ENSURE(input.count(TORCH_COLOR_COEFF), RuntimeError);
+    ENSURE(input[TORCH_COLOR_COEFF].is_array(), RuntimeError);
+
+    auto rgbCoeff = input[TORCH_COLOR_COEFF].get<std::vector<int>>();
+
+    ENSURE(3 == rgbCoeff.size(), RuntimeError);
+    ENSURE(inRange<uint8_t>(rgbCoeff[0]), RuntimeError);
+    ENSURE(inRange<uint8_t>(rgbCoeff[1]), RuntimeError);
+    ENSURE(inRange<uint8_t>(rgbCoeff[2]), RuntimeError);
+
+    /* RGB -> GRB */
+    std::swap(rgbCoeff[0], rgbCoeff[1]);
+
+    add(deviceID, output, deviceID.calcADDR(513), rgbCoeff);
+}
+
 json parse(const json &input)
 {
     ENSURE(input.is_object(), RuntimeError);
@@ -225,6 +244,7 @@ json parse(const json &input)
         add(deviceID, input, output, TORCH_ADJ_H, deviceID.calcADDR(510));
         add(deviceID, input, output, TORCH_ADJ_V, deviceID.calcADDR(511));
         add(deviceID, input, output, TORCH_PASSIVE_RETENTION, deviceID.calcADDR(512));
+        addTorchColorCoeff(deviceID, input, output);
     }
     else if("off" == mode)
     {
