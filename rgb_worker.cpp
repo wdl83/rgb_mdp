@@ -186,7 +186,7 @@ void addTorchColorCoeff(const DeviceID &deviceID, const json &input, json &outpu
     /* RGB -> GRB */
     std::swap(rgbCoeff[0], rgbCoeff[1]);
 
-    add(deviceID, output, deviceID.calcADDR(513), rgbCoeff);
+    add(deviceID, output, deviceID.calcADDR(514), rgbCoeff);
 }
 
 json parse(const json &input)
@@ -240,10 +240,10 @@ json parse(const json &input)
             deviceID.calcADDR(2),
             FX_TORCH | FLAG_REFRESH | FLAG_UPDATED);
 
-        add(deviceID, input, output, TORCH_SPARK_THRESHOLD, deviceID.calcADDR(509));
-        add(deviceID, input, output, TORCH_ADJ_H, deviceID.calcADDR(510));
-        add(deviceID, input, output, TORCH_ADJ_V, deviceID.calcADDR(511));
-        add(deviceID, input, output, TORCH_PASSIVE_RETENTION, deviceID.calcADDR(512));
+        add(deviceID, input, output, TORCH_SPARK_THRESHOLD, deviceID.calcADDR(510));
+        add(deviceID, input, output, TORCH_ADJ_H, deviceID.calcADDR(511));
+        add(deviceID, input, output, TORCH_ADJ_V, deviceID.calcADDR(512));
+        add(deviceID, input, output, TORCH_PASSIVE_RETENTION, deviceID.calcADDR(513));
         addTorchColorCoeff(deviceID, input, output);
     }
     else if("off" == mode)
