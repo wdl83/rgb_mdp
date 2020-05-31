@@ -33,6 +33,8 @@ const char *const TORCH_ADJ_H = "torch_adj_h";
 const char *const TORCH_ADJ_V = "torch_adj_v";
 const char *const TORCH_COLOR_COEFF = "torch_color_coeff";
 
+const char *const PALETTE_ID = "palette_id";
+
 const char *const ADDR = "addr";
 const char *const COUNT = "count";
 const char *const DEVICE = "device";
@@ -213,6 +215,7 @@ json parse(const json &input)
     };
 
     add(deviceID, input, output, BRIGHTNESS, deviceID.calcADDR(370));
+    add(deviceID, input, output, PALETTE_ID, deviceID.calcADDR(377));
     addFPS(deviceID, input, output);
 
     if("solid_rgb" == mode)
