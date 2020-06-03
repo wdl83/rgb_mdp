@@ -27,11 +27,13 @@ const char *const PAYLOAD = "payload";
 const char *const RGB = "RGB";
 const char *const SERVICE = "service";
 
-const char *const TORCH_SPARK_THRESHOLD = "torch_spark_threshold";
-const char *const TORCH_PASSIVE_RETENTION = "torch_passive_retention";
 const char *const TORCH_ADJ_H = "torch_adj_h";
 const char *const TORCH_ADJ_V = "torch_adj_v";
 const char *const TORCH_COLOR_COEFF = "torch_color_coeff";
+const char *const TORCH_PASSIVE_RETENTION = "torch_passive_retention";
+const char *const TORCH_SPARK_RETENTION = "torch_spark_retention";
+const char *const TORCH_SPARK_THRESHOLD = "torch_spark_threshold";
+const char *const TORCH_SPARK_TRANSFER = "torch_spark_transfer";
 
 const char *const PALETTE_ID = "palette_id";
 
@@ -188,7 +190,7 @@ void addTorchColorCoeff(const DeviceID &deviceID, const json &input, json &outpu
     /* RGB -> GRB */
     std::swap(rgbCoeff[0], rgbCoeff[1]);
 
-    add(deviceID, output, deviceID.calcADDR(514), rgbCoeff);
+    add(deviceID, output, deviceID.calcADDR(516), rgbCoeff);
 }
 
 json parse(const json &input)
@@ -247,6 +249,8 @@ json parse(const json &input)
         add(deviceID, input, output, TORCH_ADJ_H, deviceID.calcADDR(511));
         add(deviceID, input, output, TORCH_ADJ_V, deviceID.calcADDR(512));
         add(deviceID, input, output, TORCH_PASSIVE_RETENTION, deviceID.calcADDR(513));
+        add(deviceID, input, output, TORCH_SPARK_TRANSFER, deviceID.calcADDR(514));
+        add(deviceID, input, output, TORCH_SPARK_RETENTION, deviceID.calcADDR(515));
         addTorchColorCoeff(deviceID, input, output);
     }
     else if("off" == mode)
