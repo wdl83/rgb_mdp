@@ -77,7 +77,12 @@ struct DeviceID
 DeviceID toDeviceID(std::string id)
 {
     /* TODO: provide json config file */
-    return {id, "/dev/ttyUSB0", 128};
+    if("A" == id) return {id, "/dev/ttyUSB0", 128};
+    else if("B" == id) return {id, "/dev/ttyUSB0", 129};
+    else if ("C" == id) return {id, "/dev/ttyUSB0", 130};
+
+    ENSURE("not supported" && false, RuntimeError);
+    return {id, std::string{}, 0};
 }
 
 using milliseconds = std::chrono::milliseconds;
@@ -280,7 +285,7 @@ int main(int argc, char *const argv[])
 {
     std::string address;
 
-    for(char c; -1 != (c = ::getopt(argc, argv, "ha:"));)
+    for(int c; -1 != (c = ::getopt(argc, argv, "ha:"));)
     {
         switch(c)
         {
