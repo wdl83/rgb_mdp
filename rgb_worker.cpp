@@ -76,6 +76,7 @@ struct DeviceID
 
 DeviceID toDeviceID(std::string id)
 {
+    /* TODO: provide json config file */
     if("A" == id) return {id, "/dev/ttyUSB0", 128};
     else if("B" == id) return {id, "/dev/ttyUSB0", 129};
     else if("C" == id) return {id, "/dev/ttyUSB0", 130};
@@ -286,7 +287,7 @@ int main(int argc, char *const argv[])
 {
     std::string address;
 
-    for(char c; -1 != (c = ::getopt(argc, argv, "ha:"));)
+    for(int c; -1 != (c = ::getopt(argc, argv, "ha:"));)
     {
         switch(c)
         {
