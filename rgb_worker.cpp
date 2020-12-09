@@ -80,9 +80,9 @@ DeviceID toDeviceID(std::string id)
     if("A" == id) return {id, "/dev/ttyUSB0", 128};
     else if("B" == id) return {id, "/dev/ttyUSB0", 129};
     else if("C" == id) return {id, "/dev/ttyUSB0", 130};
-    else if("D" == id) return {id, "/dev/ttyUSB0", 131};
-    else if("E" == id) return {id, "/dev/ttyUSB0", 132};
-    else if("F" == id) return {id, "/dev/ttyUSB0", 133};
+    else if("D" == id) return {id, "/dev/ttyUSB2", 131};
+    else if("E" == id) return {id, "/dev/ttyUSB1", 132};
+    else if("F" == id) return {id, "/dev/ttyUSB1", 133};
     ENSURE("not supported" && false, RuntimeError);
     return {std::string{}, std::string{}, 0};
 }

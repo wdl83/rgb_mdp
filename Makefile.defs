@@ -1,6 +1,7 @@
 CC=clang
 
 FLAGS = \
+	-DENABLE_TRACE \
 	-DHOST \
 	-I ../ \
 	-I ../zmqpp-root/include \
@@ -15,7 +16,6 @@ FLAGS = \
 
 ifndef RELEASE
 	FLAGS +=  \
-		-DENABLE_TRACE \
 		-fsanitize=address
 endif
 
