@@ -35,6 +35,9 @@ const char *const TORCH_SPARK_RETENTION = "torch_spark_retention";
 const char *const TORCH_SPARK_THRESHOLD = "torch_spark_threshold";
 const char *const TORCH_SPARK_TRANSFER = "torch_spark_transfer";
 
+const char *const NOISE_SPEED_STEP = "noise_speed_step";
+const char *const NOISE_SCALE = "noise_scale";
+
 const char *const PALETTE_ID = "palette_id";
 
 const char *const ADDR = "addr";
@@ -42,19 +45,18 @@ const char *const COUNT = "count";
 const char *const DEVICE = "device";
 const char *const FCODE = "fcode";
 const char *const SLAVE = "slave";
-const char *const TIMEOUT_MS = "timeout_ms";
 const char *const VALUE = "value";
 
-constexpr auto FCODE_RD_HOLDING_REGISTERS = 3;
-constexpr auto FCODE_WR_REGISTER = 6;
-constexpr auto FCODE_WR_REGISTERS = 16;
+constexpr auto FCODE_WR_BYTES = 66;
 
 constexpr uint8_t FLAG_UPDATED = 0x1;
 constexpr uint8_t FLAG_REFRESH = 0x2;
+// strip_fx : 4 bits
 constexpr uint8_t FX_NONE = 0 << 4;
 constexpr uint8_t FX_STATIC = 1 << 4;
 constexpr uint8_t FX_FIRE = 2 << 4;
 constexpr uint8_t FX_TORCH = 3 << 4;
+constexpr uint8_t FX_NOISE = 4 << 4;
 
 struct DeviceID
 {
@@ -83,16 +85,22 @@ DeviceID toDeviceID(std::string id)
     else if("D" == id) return {id, "/dev/ttyUSB2", 131};
     else if("E" == id) return {id, "/dev/ttyUSB1", 132};
     else if("F" == id) return {id, "/dev/ttyUSB1", 133};
+    else if("G" == id) return {id, "/dev/ttyUSB0", 136};
     ENSURE("not supported" && false, RuntimeError);
     return {std::string{}, std::string{}, 0};
 }
 
-using milliseconds = std::chrono::milliseconds;
-
-int count(const uint8_t &){return 1;}
+template <typename T>
+std::vector<T> toVector(T value)
+{
+    return std::vector<T>{value};
+}
 
 template <typename T>
-int count(const std::vector<T> &seq) {return seq.size();}
+std::vector<T> toVector(std::vector<T> value)
+{
+    return value;
+}
 
 template <typename T>
 void add(
@@ -100,19 +108,19 @@ void add(
     json &output,
     uint16_t addr,
     T value,
-    milliseconds timeout = milliseconds{100})
+    const char *comment)
 {
-    const auto num = count(value);
+    auto asVector = toVector(value);
 
     output[PAYLOAD].push_back(
         {
             {DEVICE, deviceID.device},
             {SLAVE, deviceID.slaveID},
-            {FCODE, 1 == num ? FCODE_WR_REGISTER : FCODE_WR_REGISTERS},
+            {FCODE, FCODE_WR_BYTES},
             {ADDR, addr},
-            {TIMEOUT_MS, timeout.count()},
-            {COUNT, count(value)},
-            {VALUE, value}
+            {COUNT, int(asVector.size())},
+            {VALUE, asVector},
+            {"comment", comment}
         });
 }
 
@@ -130,7 +138,7 @@ void add(
 
     ENSURE(inRange<uint8_t>(value), RuntimeError);
 
-    add(deviceID, output, addr, value);
+    add(deviceID, output, addr, value, tag);
 }
 
 void addSolidRGB(const DeviceID &deviceID, const json &input, json &output)
@@ -148,20 +156,19 @@ void addSolidRGB(const DeviceID &deviceID, const json &input, json &output)
     /* RGB -> GRB */
     std::swap(rgb[0], rgb[1]);
 
-    std::vector<uint8_t> rgbSeq123(123, 0);
-    std::vector<uint8_t> rgbSeq114(114, 0);
+    std::vector<uint8_t> rgbSeq249(249, 0);
+    std::vector<uint8_t> rgbSeq111(111, 0);
 
     std::generate(
-        std::begin(rgbSeq123), std::end(rgbSeq123),
+        std::begin(rgbSeq249), std::end(rgbSeq249),
         [&rgb, n = 0]() mutable {return rgb[n++ % 3];});
 
     std::generate(
-        std::begin(rgbSeq114), std::end(rgbSeq114),
+        std::begin(rgbSeq111), std::end(rgbSeq111),
         [&rgb, n = 0]() mutable {return rgb[n++ % 3];});
 
-    add(deviceID, output, deviceID.calcADDR(5), rgbSeq123, milliseconds{500});
-    add(deviceID, output, deviceID.calcADDR(128), rgbSeq123, milliseconds{500});
-    add(deviceID, output, deviceID.calcADDR(251), rgbSeq114, milliseconds{500});
+    add(deviceID, output, deviceID.calcADDR(0 + 5), rgbSeq249, "RGB[0-248]");
+    add(deviceID, output, deviceID.calcADDR(0 + 5 + 249), rgbSeq111, "RGB[249-359]");
 }
 
 void addFPS(const DeviceID &deviceID, const json &input, json &output)
@@ -179,7 +186,7 @@ void addFPS(const DeviceID &deviceID, const json &input, json &output)
 
     std::vector<uint8_t> seq{uint8_t(tmrValue & 0xFF), uint8_t(tmrValue >> 8)};
 
-    add(deviceID, output, deviceID.calcADDR(3), seq);
+    add(deviceID, output, deviceID.calcADDR(3), seq, "TMR1A");
 }
 
 void addTorchColorCoeff(const DeviceID &deviceID, const json &input, json &output)
@@ -197,7 +204,7 @@ void addTorchColorCoeff(const DeviceID &deviceID, const json &input, json &outpu
     /* RGB -> GRB */
     std::swap(rgbCoeff[0], rgbCoeff[1]);
 
-    add(deviceID, output, deviceID.calcADDR(516), rgbCoeff);
+    add(deviceID, output, deviceID.calcADDR(516), rgbCoeff, "RGB coeff");
 }
 
 json parse(const json &input)
@@ -234,7 +241,8 @@ json parse(const json &input)
             deviceID,
             output,
             deviceID.calcADDR(2),
-            FX_STATIC | FLAG_REFRESH | FLAG_UPDATED);
+            FX_STATIC | FLAG_REFRESH | FLAG_UPDATED,
+            "flags");
     }
     else if("fx_fire" == mode)
     {
@@ -242,7 +250,8 @@ json parse(const json &input)
             deviceID,
             output,
             deviceID.calcADDR(2),
-            FX_FIRE | FLAG_REFRESH | FLAG_UPDATED);
+            FX_FIRE | FLAG_REFRESH | FLAG_UPDATED,
+            "flags");
     }
     else if("fx_torch" == mode)
     {
@@ -250,7 +259,8 @@ json parse(const json &input)
             deviceID,
             output,
             deviceID.calcADDR(2),
-            FX_TORCH | FLAG_REFRESH | FLAG_UPDATED);
+            FX_TORCH | FLAG_REFRESH | FLAG_UPDATED,
+            "flags");
 
         add(deviceID, input, output, TORCH_SPARK_THRESHOLD, deviceID.calcADDR(510));
         add(deviceID, input, output, TORCH_ADJ_H, deviceID.calcADDR(511));
@@ -260,13 +270,26 @@ json parse(const json &input)
         add(deviceID, input, output, TORCH_SPARK_RETENTION, deviceID.calcADDR(515));
         addTorchColorCoeff(deviceID, input, output);
     }
+    else if("fx_noise" == mode)
+    {
+        add(
+            deviceID,
+            output,
+            deviceID.calcADDR(2),
+            FX_NOISE | FLAG_REFRESH | FLAG_UPDATED,
+            "flags");
+
+        add(deviceID, input, output, NOISE_SPEED_STEP, deviceID.calcADDR(510));
+        add(deviceID, input, output, NOISE_SCALE, deviceID.calcADDR(511));
+    }
     else if("off" == mode)
     {
         add(
             deviceID,
             output,
             deviceID.calcADDR(2),
-            FX_NONE | FLAG_REFRESH | FLAG_UPDATED);
+            FX_NONE | FLAG_REFRESH | FLAG_UPDATED,
+            "flags");
     }
     else ENSURE(false, RuntimeError);
 
@@ -325,11 +348,12 @@ int main(int argc, char *const argv[])
                 for(auto i = 0u; i < message.parts(); ++i)
                 {
                     auto input = json::parse(message.get<std::string>(i));
-                    //std::cout << input.dump(2) << std::endl;
+
+                    TRACE(TraceLevel::Info, "input ", input.dump());
                     output.push_back(parse(input));
                 }
 
-                //std::cout << output.dump(2) << std::endl;
+                TRACE(TraceLevel::Info, "output ", output.dump());
                 return MDP::makeMessage(output.dump());
             });
     }
