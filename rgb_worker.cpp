@@ -1,5 +1,6 @@
-#include <iostream>
 #include <chrono>
+#include <fstream>
+#include <iostream>
 
 #include <unistd.h>
 
@@ -19,13 +20,19 @@ bool inRange(V value)
 
 using json = nlohmann::json;
 
-const char *const BRIGHTNESS = "brightness";
-const char *const FPS = "fps";
+const char *const DEVICE = "device";
+const char *const MMAP = "mmap";
+
 const char *const ID = "id";
-const char *const MODE = "mode";
-const char *const PAYLOAD = "payload";
-const char *const RGB = "RGB";
-const char *const SERVICE = "service";
+const char *const LOCATION = "location";
+const char *const MMAP_ID = "mmap_id";
+const char *const SLAVE = "slave";
+const char *const STRIP_SIZE = "strip_size";
+
+const char *const FLAGS = "flags";
+const char *const BRIGHTNESS = "brightness";
+const char *const PALETTE_ID = "palette_id";
+const char *const RGB = "rgb";
 
 const char *const TORCH_ADJ_H = "torch_adj_h";
 const char *const TORCH_ADJ_V = "torch_adj_v";
@@ -38,19 +45,18 @@ const char *const TORCH_SPARK_TRANSFER = "torch_spark_transfer";
 const char *const NOISE_SPEED_STEP = "noise_speed_step";
 const char *const NOISE_SCALE = "noise_scale";
 
-const char *const PALETTE_ID = "palette_id";
+const char *const MODE = "mode";
+const char *const PAYLOAD = "payload";
+const char *const SERVICE = "service";
 
 const char *const ADDR = "addr";
 const char *const COUNT = "count";
-const char *const DEVICE = "device";
 const char *const FCODE = "fcode";
-const char *const SLAVE = "slave";
 const char *const VALUE = "value";
 
 constexpr auto FCODE_WR_BYTES = 66;
 
 constexpr uint8_t FLAG_UPDATED = 0x1;
-constexpr uint8_t FLAG_REFRESH = 0x2;
 // strip_fx : 4 bits
 constexpr uint8_t FX_NONE = 0 << 4;
 constexpr uint8_t FX_STATIC = 1 << 4;
@@ -58,238 +64,258 @@ constexpr uint8_t FX_FIRE = 2 << 4;
 constexpr uint8_t FX_TORCH = 3 << 4;
 constexpr uint8_t FX_NOISE = 4 << 4;
 
-struct DeviceID
+struct Device
 {
-    DeviceID(std::string name, std::string dev, uint8_t slave):
-        id{std::move(name)},
-        device{std::move(dev)},
-        slaveID{slave}
-    {}
+    std::string id_;
+    std::string location_;
+    uint8_t slave_;
+    std::string mmapId_;
+    json mmap_;
+    int stripSize_;
 
-    uint16_t calcADDR(uint16_t offset) const
+    Device(const json &device, const json &mmap)
     {
-        return 0x1000 + offset;
+        vENSURE(device.count(ID), TagMissingError, device.dump());
+        vENSURE(device[ID].is_string(), TagFormatError, device.dump());
+
+        id_ = device[ID].get<std::string>();
+
+        vENSURE(device.count(LOCATION), TagMissingError, device.dump());
+        vENSURE(device[LOCATION].is_string(), TagFormatError, device.dump());
+
+        location_ = device[LOCATION].get<std::string>();
+
+        vENSURE(device.count(SLAVE), TagMissingError, device.dump());
+        vENSURE(device[SLAVE].is_number(), TagFormatError, device.dump());
+
+        slave_ = device[SLAVE].get<int>();
+
+        vENSURE(device.count(MMAP_ID), TagMissingError, device.dump());
+        vENSURE(device[MMAP_ID].is_string(), TagFormatError, device.dump());
+
+        mmapId_ = device[MMAP_ID].get<std::string>();
+
+        vENSURE(device.count(STRIP_SIZE), TagMissingError, device.dump());
+        vENSURE(device[STRIP_SIZE].is_number(), TagFormatError, device.dump());
+
+        stripSize_ = device[STRIP_SIZE].get<int>();
+
+        vENSURE(mmap.count(mmapId_), TagMissingError, mmapId_, ' ', mmap.dump());
+        vENSURE(mmap[mmapId_].is_object(), TagFormatError, mmap.dump());
+
+        mmap_ = mmap[mmapId_];
     }
 
-    std::string id;
-    std::string device;
-    uint8_t slaveID;
+    const std::string &id() const {return id_;}
+    const std::string &location() const {return location_;}
+    uint8_t slave() const {return slave_;}
+
+    uint16_t addr(const char *tag, int offset = 0) const
+    {
+        vENSURE(mmap_.count(tag), TagMissingError, '[', tag, "] ", mmap_.dump());
+        vENSURE(mmap_[tag].is_number(), TagFormatError, mmap_.dump());
+
+        const auto base = mmap_[tag].get<int>();
+
+        vENSURE(inRange<uint16_t>(0x1000 + base + offset), TagValueRangeError, offset);
+        return UINT16_C(0x1000) + uint16_t(base) + uint16_t(offset);
+    }
+
+    int stripSize() const {return stripSize_;}
 };
 
-DeviceID toDeviceID(std::string id)
+using DeviceSeq = std::vector<Device>;
+
+DeviceSeq parseDeviceSeq(const json &input)
 {
-    /* TODO: provide json config file */
-    if("A" == id) return {id, "/dev/ttyUSB0", 128};
-    else if("B" == id) return {id, "/dev/ttyUSB0", 129};
-    else if("C" == id) return {id, "/dev/ttyUSB0", 130};
-    else if("D" == id) return {id, "/dev/ttyUSB2", 131};
-    else if("E" == id) return {id, "/dev/ttyUSB1", 132};
-    else if("F" == id) return {id, "/dev/ttyUSB1", 133};
-    else if("G" == id) return {id, "/dev/ttyUSB0", 136};
-    ENSURE("not supported" && false, RuntimeError);
-    return {std::string{}, std::string{}, 0};
+    vENSURE(input.count(DEVICE), TagMissingError, input.dump());
+    vENSURE(input[DEVICE].is_array(), TagFormatError, input.dump());
+
+    vENSURE(input.count(MMAP), TagMissingError, input.dump());
+    vENSURE(input[MMAP].is_object(), TagFormatError, input.dump());
+
+    DeviceSeq seq;
+
+    for(const auto &i : input[DEVICE].get<std::vector<json>>())
+    {
+        seq.emplace_back(i, input[MMAP]);
+    }
+    return seq;
+}
+
+using ByteSeq = std::vector<uint8_t>;
+
+template <typename T>
+ByteSeq toByteSeq(T value)
+{
+    vENSURE(inRange<uint8_t>(value), TagValueRangeError, value);
+    return ByteSeq{uint8_t(value)};
 }
 
 template <typename T>
-std::vector<T> toVector(T value)
+ByteSeq toByteSeq(std::vector<T> value)
 {
-    return std::vector<T>{value};
-}
+    ByteSeq byteSeq;
 
-template <typename T>
-std::vector<T> toVector(std::vector<T> value)
-{
-    return value;
+    for(auto i : value)
+    {
+        vENSURE(inRange<uint8_t>(i), TagValueRangeError, i);
+        byteSeq.push_back(i);
+    }
+
+    return byteSeq;
 }
 
 template <typename T>
 void add(
-    const DeviceID &deviceID,
+    const Device &device,
     json &output,
     uint16_t addr,
     T value,
     const char *comment)
 {
-    auto asVector = toVector(value);
+    auto byteSeq = toByteSeq(value);
 
     output[PAYLOAD].push_back(
         {
-            {DEVICE, deviceID.device},
-            {SLAVE, deviceID.slaveID},
+            {DEVICE, device.location()},
+            {SLAVE, device.slave()},
             {FCODE, FCODE_WR_BYTES},
             {ADDR, addr},
-            {COUNT, int(asVector.size())},
-            {VALUE, asVector},
+            {COUNT, int(byteSeq.size())},
+            {VALUE, byteSeq},
             {"comment", comment}
         });
 }
 
-void add(
-    const DeviceID &deviceID,
+void addU8(
+    const Device &device,
     const json &input, json &output,
-    const char *tag,
-    uint16_t addr)
+    const char *tag)
 {
-    if(!input.count(tag)) return;
-
-    ENSURE(input[tag].is_number(), RuntimeError);
+    vENSURE(input.count(tag), TagMissingError, tag, ' ', input.dump());
+    vENSURE(input[tag].is_number(), TagFormatError, input.dump());
 
     const auto value = input[tag].get<int>();
 
-    ENSURE(inRange<uint8_t>(value), RuntimeError);
+    vENSURE(inRange<uint8_t>(value), TagValueRangeError, value);
 
-    add(deviceID, output, addr, value, tag);
+    add(device, output, device.addr(tag), value, tag);
 }
 
-void addSolidRGB(const DeviceID &deviceID, const json &input, json &output)
+void addRGB(const Device &device, const json &input, json &output)
 {
-    ENSURE(input.count(RGB), RuntimeError);
-    ENSURE(input[RGB].is_array(), RuntimeError);
+    vENSURE(input.count(RGB), TagMissingError, input.dump());
+    vENSURE(input[RGB].is_array(), TagFormatError, input.dump());
 
     auto rgb = input[RGB].get<std::vector<int>>();
 
-    ENSURE(3 == rgb.size(), RuntimeError);
-    ENSURE(inRange<uint8_t>(rgb[0]), RuntimeError);
-    ENSURE(inRange<uint8_t>(rgb[1]), RuntimeError);
-    ENSURE(inRange<uint8_t>(rgb[2]), RuntimeError);
+    vENSURE(3 == rgb.size(), TagValueRangeError, rgb.size());
+    vENSURE(inRange<uint8_t>(rgb[0]), TagValueRangeError, rgb[0]);
+    vENSURE(inRange<uint8_t>(rgb[1]), TagValueRangeError, rgb[1]);
+    vENSURE(inRange<uint8_t>(rgb[2]), TagValueRangeError, rgb[2]);
 
-    /* RGB -> GRB */
+    /* RGB -> GRB (WS2812B native format) */
     std::swap(rgb[0], rgb[1]);
 
-    std::vector<uint8_t> rgbSeq249(249, 0);
-    std::vector<uint8_t> rgbSeq111(111, 0);
+    std::vector<uint8_t> rgbSeq(device.stripSize() * 3, 0);
 
     std::generate(
-        std::begin(rgbSeq249), std::end(rgbSeq249),
+        std::begin(rgbSeq), std::end(rgbSeq),
         [&rgb, n = 0]() mutable {return rgb[n++ % 3];});
 
-    std::generate(
-        std::begin(rgbSeq111), std::end(rgbSeq111),
-        [&rgb, n = 0]() mutable {return rgb[n++ % 3];});
+    auto begin = std::begin(rgbSeq);
+    const auto end = std::end(rgbSeq);
 
-    add(deviceID, output, deviceID.calcADDR(0 + 5), rgbSeq249, "RGB[0-248]");
-    add(deviceID, output, deviceID.calcADDR(0 + 5 + 249), rgbSeq111, "RGB[249-359]");
+    while(begin != end)
+    {
+        auto next = std::next(begin, std::min(249, int(std::distance(begin, end))));
+        const int offset = std::distance(std::begin(rgbSeq), begin);
+
+        add(device, output, device.addr(RGB, offset), ByteSeq(begin, next), "rgb");
+        begin = next;
+    }
 }
 
-void addFPS(const DeviceID &deviceID, const json &input, json &output)
+void addTorchColorCoeff(const Device &device, const json &input, json &output)
 {
-    if(!input.count(FPS)) return;
-
-    ENSURE(input[FPS].is_number(), RuntimeError);
-
-    const auto fps = input[FPS].get<int>();
-
-    ENSURE(3 < fps, RuntimeError);
-    ENSURE(241 > fps, RuntimeError);
-
-    const uint16_t tmrValue = 1000000 / (fps << 2);
-
-    std::vector<uint8_t> seq{uint8_t(tmrValue & 0xFF), uint8_t(tmrValue >> 8)};
-
-    add(deviceID, output, deviceID.calcADDR(3), seq, "TMR1A");
-}
-
-void addTorchColorCoeff(const DeviceID &deviceID, const json &input, json &output)
-{
-    ENSURE(input.count(TORCH_COLOR_COEFF), RuntimeError);
-    ENSURE(input[TORCH_COLOR_COEFF].is_array(), RuntimeError);
+    vENSURE(input.count(TORCH_COLOR_COEFF), TagMissingError, input.dump());
+    vENSURE(input[TORCH_COLOR_COEFF].is_array(), TagFormatError, input.dump());
 
     auto rgbCoeff = input[TORCH_COLOR_COEFF].get<std::vector<int>>();
 
-    ENSURE(3 == rgbCoeff.size(), RuntimeError);
-    ENSURE(inRange<uint8_t>(rgbCoeff[0]), RuntimeError);
-    ENSURE(inRange<uint8_t>(rgbCoeff[1]), RuntimeError);
-    ENSURE(inRange<uint8_t>(rgbCoeff[2]), RuntimeError);
+    vENSURE(3 == rgbCoeff.size(), TagValueRangeError, rgbCoeff.size());
+    vENSURE(inRange<uint8_t>(rgbCoeff[0]), TagValueRangeError, rgbCoeff[0]);
+    vENSURE(inRange<uint8_t>(rgbCoeff[1]), TagValueRangeError, rgbCoeff[1]);
+    vENSURE(inRange<uint8_t>(rgbCoeff[2]), TagValueRangeError, rgbCoeff[2]);
 
     /* RGB -> GRB */
     std::swap(rgbCoeff[0], rgbCoeff[1]);
 
-    add(deviceID, output, deviceID.calcADDR(516), rgbCoeff, "RGB coeff");
+    add(device, output, device.addr(TORCH_COLOR_COEFF), rgbCoeff, "RGB coeff");
 }
 
-json parse(const json &input)
+json parse(const DeviceSeq &deviceSeq, const json &input)
 {
     ENSURE(input.is_object(), RuntimeError);
-    ENSURE(input.count(ID), RuntimeError);
-    ENSURE(input[ID].is_string(), RuntimeError);
+    vENSURE(input.count(ID), TagMissingError, input.dump());
+    vENSURE(input[ID].is_string(), TagMissingError, input.dump());
 
     const auto id = input[ID].get<std::string>();
-    const auto deviceID = toDeviceID(id);
 
-    ENSURE(input.count(MODE), RuntimeError);
-    ENSURE(input[MODE].is_string(), RuntimeError);
+    auto device =
+        std::find_if(
+            std::begin(deviceSeq), std::end(deviceSeq),
+            [&](const Device &dev){return dev.id() == id;});
+
+    ENSURE(device != std::end(deviceSeq), RuntimeError);
+
+    vENSURE(input.count(MODE), TagMissingError, input.dump());
+    vENSURE(input[MODE].is_string(), TagFormatError, input.dump());
 
     const auto mode = input[MODE].get<std::string>();
 
     json output
     {
-        {ID, deviceID.id},
-        {SERVICE, "modbus_master_" + deviceID.device},
+        {ID, id},
+        {SERVICE, "modbus_master_/" + device->location()},
         {
             PAYLOAD, json::array()
         }
     };
 
-    add(deviceID, input, output, BRIGHTNESS, deviceID.calcADDR(370));
-    add(deviceID, input, output, PALETTE_ID, deviceID.calcADDR(377));
-    addFPS(deviceID, input, output);
+    addU8(*device, input, output, BRIGHTNESS);
+    addU8(*device, input, output, PALETTE_ID);
 
     if("solid_rgb" == mode)
     {
-        addSolidRGB(deviceID, input, output);
-        add(
-            deviceID,
-            output,
-            deviceID.calcADDR(2),
-            FX_STATIC | FLAG_REFRESH | FLAG_UPDATED,
-            "flags");
+        addRGB(*device, input, output);
+        add(*device, output, device->addr(FLAGS), FX_STATIC | FLAG_UPDATED, FLAGS);
     }
     else if("fx_fire" == mode)
     {
-        add(
-            deviceID,
-            output,
-            deviceID.calcADDR(2),
-            FX_FIRE | FLAG_REFRESH | FLAG_UPDATED,
-            "flags");
+        add(*device, output, device->addr(FLAGS), FX_FIRE | FLAG_UPDATED, FLAGS);
     }
     else if("fx_torch" == mode)
     {
-        add(
-            deviceID,
-            output,
-            deviceID.calcADDR(2),
-            FX_TORCH | FLAG_REFRESH | FLAG_UPDATED,
-            "flags");
-
-        add(deviceID, input, output, TORCH_SPARK_THRESHOLD, deviceID.calcADDR(510));
-        add(deviceID, input, output, TORCH_ADJ_H, deviceID.calcADDR(511));
-        add(deviceID, input, output, TORCH_ADJ_V, deviceID.calcADDR(512));
-        add(deviceID, input, output, TORCH_PASSIVE_RETENTION, deviceID.calcADDR(513));
-        add(deviceID, input, output, TORCH_SPARK_TRANSFER, deviceID.calcADDR(514));
-        add(deviceID, input, output, TORCH_SPARK_RETENTION, deviceID.calcADDR(515));
-        addTorchColorCoeff(deviceID, input, output);
+        addU8(*device, input, output, TORCH_SPARK_THRESHOLD);
+        addU8(*device, input, output, TORCH_ADJ_H);
+        addU8(*device, input, output, TORCH_ADJ_V);
+        addU8(*device, input, output, TORCH_PASSIVE_RETENTION);
+        addU8(*device, input, output, TORCH_SPARK_TRANSFER);
+        addU8(*device, input, output, TORCH_SPARK_RETENTION);
+        addTorchColorCoeff(*device, input, output);
+        add(*device, output, device->addr(FLAGS), FX_TORCH | FLAG_UPDATED, FLAGS);
     }
     else if("fx_noise" == mode)
     {
-        add(
-            deviceID,
-            output,
-            deviceID.calcADDR(2),
-            FX_NOISE | FLAG_REFRESH | FLAG_UPDATED,
-            "flags");
-
-        add(deviceID, input, output, NOISE_SPEED_STEP, deviceID.calcADDR(510));
-        add(deviceID, input, output, NOISE_SCALE, deviceID.calcADDR(511));
+        addU8(*device, input, output, NOISE_SPEED_STEP);
+        addU8(*device, input, output, NOISE_SCALE);
+        add(*device, output, device->addr(FLAGS), FX_NOISE | FLAG_UPDATED, FLAGS);
     }
     else if("off" == mode)
     {
-        add(
-            deviceID,
-            output,
-            deviceID.calcADDR(2),
-            FX_NONE | FLAG_REFRESH | FLAG_UPDATED,
-            "flags");
+        add(*device, output, device->addr(FLAGS), FX_NONE | FLAG_UPDATED, FLAGS);
     }
     else ENSURE(false, RuntimeError);
 
@@ -303,14 +329,16 @@ void help(const char *argv0, const char *message = nullptr)
     std::cout
         << argv0
         << " -a broker_address"
+        << " -c config"
         << std::endl;
 }
 
 int main(int argc, char *const argv[])
 {
     std::string address;
+    std::string config;
 
-    for(int c; -1 != (c = ::getopt(argc, argv, "ha:"));)
+    for(int c; -1 != (c = ::getopt(argc, argv, "ha:c:"));)
     {
         switch(c)
         {
@@ -321,6 +349,9 @@ int main(int argc, char *const argv[])
             case 'a':
                 address = optarg ? optarg : "";
                 break;
+            case 'c':
+                config = optarg ? optarg : "";
+                break;
             case ':':
             case '?':
             default:
@@ -330,7 +361,7 @@ int main(int argc, char *const argv[])
         }
     }
 
-    if(address.empty())
+    if(address.empty() || config.empty())
     {
         help(argv[0], "missing required arguments");
         return EXIT_FAILURE;
@@ -338,10 +369,18 @@ int main(int argc, char *const argv[])
 
     try
     {
+        DeviceSeq deviceSeq;
+
+        {
+            json input;
+            std::ifstream{config} >> input;
+            deviceSeq = parseDeviceSeq(input);
+        }
+
         Worker{}.exec(
             address,
             "rgb",
-            [](zmqpp::message message)
+            [&deviceSeq](zmqpp::message message)
             {
                 json output;
 
@@ -350,7 +389,7 @@ int main(int argc, char *const argv[])
                     auto input = json::parse(message.get<std::string>(i));
 
                     TRACE(TraceLevel::Info, "input ", input.dump());
-                    output.push_back(parse(input));
+                    output.push_back(parse(deviceSeq, input));
                 }
 
                 TRACE(TraceLevel::Info, "output ", output.dump());
@@ -359,12 +398,12 @@ int main(int argc, char *const argv[])
     }
     catch(const std::exception &except)
     {
-        std::cerr << "std exception " << except.what() << std::endl;
+        TRACE(TraceLevel::Error, except.what());
         return EXIT_FAILURE;
     }
     catch(...)
     {
-        std::cerr << "unsupported exception" << std::endl;
+        TRACE(TraceLevel::Error, "unsupported exception");
         return EXIT_FAILURE;
     }
 

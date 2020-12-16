@@ -1,0 +1,120 @@
+{
+    "device" :
+    [
+        {
+            "id" : "A",
+            "location" : "dev/ttyUSB0",
+            "slave" : 128,
+            "mmap_id" : "mmap_6x20ng",
+            "strip_size" : 120
+        },
+        {
+            "id" : "B",
+            "location" : "dev/ttyUSB0",
+            "slave" : 129,
+            "mmap_id" : "mmap_6x20ng",
+            "strip_size" : 120
+        },
+        {
+            "id" : "C",
+            "location" : "dev/ttyUSB0",
+            "slave" : 130,
+            "mmap_id" : "mmap_6x20ng",
+            "strip_size" : 120
+        },
+        {
+            "id" : "D",
+            "location" : "dev/ttyUSB2",
+            "slave" : 131,
+            "mmap_id" : "mmap_6x20ng",
+            "strip_size" : 120
+        },
+        {
+            "id" : "E",
+            "location" : "dev/ttyUSB1",
+            "slave" : 132,
+            "mmap_id" : "mmap_6x20ng",
+            "strip_size" : 120
+        },
+        {
+            "id" : "F",
+            "location" : "dev/ttyUSB1",
+            "slave" : 133,
+            "mmap_id" : "mmap_6x20ng",
+            "strip_size" : 120
+        },
+        {
+            "id" : "G",
+            "location" : "dev/ttyUSB0",
+            "slave" : 137,
+            "mmap_id" : "mmap_150x1",
+            "strip_size" : 150
+        },
+        {
+            "id" : "H",
+            "location" : "dev/ttyUSB0",
+            "slave" : 138,
+            "mmap_id" : "mmap_150x1",
+            "strip_size" : 150
+        }
+    ],
+    "mmap" : 
+    {
+        "mmap_6x20" :
+        {
+            "fw_checksum" : 0,
+            "flags" : 2,
+            "tmr1_A" : 3,
+            "brightness" : 370,
+            "palette_id" : 377,
+            "rgb" : 5,
+            "torch_spark_threshold" : 510,
+            "torch_adj_h" : 511,
+            "torch_adj_v" : 512,
+            "torch_passive_retention" : 513,
+            "torch_spark_transfer" : 514,
+            "torch_spark_retention" : 515,
+            "torch_color_coeff" : 516,
+            "noise_speed_step" : 510,
+            "noise_scale" : 511
+        },
+        "mmap_6x20ng" :
+        {
+            "fw_checksum" : 0,
+            "flags" : 2,
+            "tmr1_A" : 3,
+            "brightness" : 13,
+            "palette_id" : 20,
+            "rgb" : 33,
+            "torch_spark_threshold" : 513,
+            "torch_adj_h" : 514,
+            "torch_adj_v" : 515,
+            "torch_passive_retention" : 516,
+            "torch_spark_transfer" : 517,
+            "torch_spark_retention" : 518,
+            "torch_color_coeff" : 519,
+            "noise_speed_step" : 513,
+            "noise_scale" : 514
+        },
+        "mmap_150x1" :
+        {
+            "fw_checksum" : 0,
+            "flags" : 2,
+            "tmr1_A" : 3,
+            "brightness" : 13,
+            "palette_id" : 20,
+            "rgb" : 33,
+            "_fx_data_offset" : "33 + STRIP_SIZE * 3 = 483",
+            "_fx_param_offset" : "_fx_data_offset + STRIP_SIZE = 633",
+            "torch_spark_threshold" : 633,
+            "torch_adj_h" : 634,
+            "torch_adj_v" : 635,
+            "torch_passive_retention" : 636,
+            "torch_spark_transfer" : 637,
+            "torch_spark_retention" : 638,
+            "torch_color_coeff" : 639,
+            "noise_speed_step" : 633,
+            "noise_scale" :634 
+        }
+    }
+}
