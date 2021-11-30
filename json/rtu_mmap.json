@@ -3,62 +3,62 @@
     [
         {
             "id" : "A",
-            "location" : "dev/ttyUSB0",
+            "location" : "dev/ttyUSB1",
             "slave" : 128,
-            "mmap_id" : "mmap_6x20ng",
+            "mmap_id" : "mmap_6x20ng3",
             "strip_size" : 120
         },
         {
             "id" : "B",
-            "location" : "dev/ttyUSB0",
+            "location" : "dev/ttyUSB1",
             "slave" : 129,
-            "mmap_id" : "mmap_6x20ng",
+            "mmap_id" : "mmap_6x20ng3",
             "strip_size" : 120
         },
         {
             "id" : "C",
-            "location" : "dev/ttyUSB0",
+            "location" : "dev/ttyUSB1",
             "slave" : 130,
-            "mmap_id" : "mmap_6x20ng",
+            "mmap_id" : "mmap_6x20ng3",
             "strip_size" : 120
         },
         {
             "id" : "D",
-            "location" : "dev/ttyUSB2",
+            "location" : "dev/ttyUSB3",
             "slave" : 131,
-            "mmap_id" : "mmap_6x20ng",
+            "mmap_id" : "mmap_6x20ng3",
             "strip_size" : 120
         },
         {
             "id" : "E",
-            "location" : "dev/ttyUSB1",
+            "location" : "dev/ttyUSB2",
             "slave" : 132,
-            "mmap_id" : "mmap_6x20ng",
+            "mmap_id" : "mmap_6x20ng3",
             "strip_size" : 120
         },
         {
             "id" : "F",
-            "location" : "dev/ttyUSB1",
+            "location" : "dev/ttyUSB2",
             "slave" : 133,
-            "mmap_id" : "mmap_6x20ng",
+            "mmap_id" : "mmap_6x20ng3",
             "strip_size" : 120
         },
         {
             "id" : "G",
-            "location" : "dev/ttyUSB0",
+            "location" : "dev/ttyUSB1",
             "slave" : 137,
             "mmap_id" : "mmap_150x1",
             "strip_size" : 150
         },
         {
             "id" : "H",
-            "location" : "dev/ttyUSB0",
+            "location" : "dev/ttyUSB1",
             "slave" : 138,
             "mmap_id" : "mmap_150x1",
             "strip_size" : 150
         }
     ],
-    "mmap" : 
+    "mmap" :
     {
         "mmap_6x20" :
         {
@@ -96,6 +96,42 @@
             "noise_speed_step" : 513,
             "noise_scale" : 514
         },
+        "mmap_6x20ng2" :
+        {
+            "fw_checksum" : 0,
+            "flags" : 2,
+            "tmr1_A" : 3,
+            "brightness" : 13,
+            "palette_id" : 20,
+            "rgb" : 24,
+            "torch_spark_threshold" : 387,
+            "torch_adj_h" : 388,
+            "torch_adj_v" : 389,
+            "torch_passive_retention" : 390,
+            "torch_spark_transfer" : 391,
+            "torch_spark_retention" : 392,
+            "torch_color_coeff" : 393,
+            "noise_speed_step" : 387,
+            "noise_scale" : 388
+        },
+        "mmap_6x20ng3" :
+        {
+            "fw_checksum" : 0,
+            "flags" : 2,
+            "tmr1_A" : 3,
+            "brightness" : 14,
+            "palette_id" : 21,
+            "rgb" : 25,
+            "torch_spark_threshold" : 388,
+            "torch_adj_h" : 389,
+            "torch_adj_v" : 390,
+            "torch_passive_retention" : 391,
+            "torch_spark_transfer" : 392,
+            "torch_spark_retention" : 393,
+            "torch_color_coeff" : 394,
+            "noise_speed_step" : 388,
+            "noise_scale" : 389
+        },
         "mmap_150x1" :
         {
             "fw_checksum" : 0,
@@ -114,7 +150,7 @@
             "torch_spark_retention" : 638,
             "torch_color_coeff" : 639,
             "noise_speed_step" : 633,
-            "noise_scale" :634 
+            "noise_scale" :634
         }
     }
 }
