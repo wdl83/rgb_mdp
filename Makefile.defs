@@ -1,36 +1,47 @@
-CC=clang
+CC=gcc
 
-FLAGS = \
+ifndef OBJ_DIR
+$(error please define OBJ_DIR)
+endif
+
+ifndef DST_DIR
+$(error please define DST_DIR)
+endif
+
+CXXFLAGS = \
 	-DENABLE_TRACE \
-	-DHOST \
-	-I ../ \
-	-I ../zmqpp-root/include \
-	-Os \
+	-I ${OBJ_DIR}/zmqpp/include \
+	-I ensure \
+	-I mdp \
+	-I modbus_tools \
 	-Wall \
 	-Wextra \
 	-Wno-parentheses \
 	-Wshadow \
 	-Wunreachable-code \
-	-fomit-frame-pointer \
-	-g
-
-ifndef RELEASE
-	FLAGS +=  \
-		-fsanitize=address
-endif
-
-CXXFLAGS = \
-	$(FLAGS) \
+	-g \
 	-std=c++14
 
 LDFLAGS = \
-	-L ../zmqpp-root/lib \
+	-L ${OBJ_DIR}/zmqpp/lib \
 	-lpthread \
 	-lstdc++ \
 	-lzmq \
 	-lzmqpp
 
-ifndef RELEASE
-	LDFLAGS += \
-		-fsanitize=address
+ifdef RELEASE
+
+CXXFLAGS += \
+	-O2 \
+	-flto
+
+else
+
+CXXFLAGS += \
+	-O0 \
+	-fsanitize=address
+
+LDFLAGS += \
+	-fsanitize=address
+
 endif

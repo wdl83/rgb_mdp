@@ -3,56 +3,56 @@
     [
         {
             "id" : "A",
-            "location" : "dev/ttyUSB1",
+            "location" : "dev/ttyUSB2",
             "slave" : 128,
             "mmap_id" : "mmap_6x20ng3",
             "strip_size" : 120
         },
         {
             "id" : "B",
-            "location" : "dev/ttyUSB1",
+            "location" : "dev/ttyUSB2",
             "slave" : 129,
             "mmap_id" : "mmap_6x20ng3",
             "strip_size" : 120
         },
         {
             "id" : "C",
-            "location" : "dev/ttyUSB1",
+            "location" : "dev/ttyUSB2",
             "slave" : 130,
             "mmap_id" : "mmap_6x20ng3",
             "strip_size" : 120
         },
         {
             "id" : "D",
-            "location" : "dev/ttyUSB3",
+            "location" : "dev/ttyUSB0",
             "slave" : 131,
             "mmap_id" : "mmap_6x20ng3",
             "strip_size" : 120
         },
         {
             "id" : "E",
-            "location" : "dev/ttyUSB2",
+            "location" : "dev/ttyUSB4",
             "slave" : 132,
             "mmap_id" : "mmap_6x20ng3",
             "strip_size" : 120
         },
         {
             "id" : "F",
-            "location" : "dev/ttyUSB2",
+            "location" : "dev/ttyUSB3",
             "slave" : 133,
             "mmap_id" : "mmap_6x20ng3",
             "strip_size" : 120
         },
         {
             "id" : "G",
-            "location" : "dev/ttyUSB1",
+            "location" : "dev/ttyUSB2",
             "slave" : 137,
             "mmap_id" : "mmap_150x1",
             "strip_size" : 150
         },
         {
             "id" : "H",
-            "location" : "dev/ttyUSB1",
+            "location" : "dev/ttyUSB2",
             "slave" : 138,
             "mmap_id" : "mmap_150x1",
             "strip_size" : 150

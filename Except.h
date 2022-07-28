@@ -1,6 +1,6 @@
 #pragma once
 
-#include "mdp/Ensure.h"
+#include "Ensure.h"
 
 using TagFormatError = EXCEPTION(std::runtime_error);
 using TagMissingError = EXCEPTION(std::runtime_error);

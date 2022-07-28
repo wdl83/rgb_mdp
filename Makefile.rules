@@ -1,19 +1,21 @@
-COBJS = $(CSRCS:.c=.o) 
-CXXOBJS = $(CXXSRCS:.cpp=.o) 
+.PRECIOUS: $(OBJ_DIR)/%.o
 
-TARGETS = $(TARGET).elf
-all:: $(TARGETS)
+OBJS = $(CXXSRCS:.cpp=.o) 
+DST_OBJS = $(addprefix $(OBJ_DIR)/, $(OBJS))
+DST_TARGET = $(OBJ_DIR)/$(TARGET)
 
-%.elf: $(COBJS) $(CXXOBJS)
-	$(CC) $^ $(LDFLAGS) -o $@
+all:: $(DST_TARGET)
 
-#.PRECIOUS: %.o
+$(DST_TARGET): $(DST_OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS)
 
-%.o: %.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
+$(OBJ_DIR)/%.o: %.cpp
+	mkdir -p "$(OBJ_DIR)/`dirname $<`"
+	$(CC) $(CXXFLAGS) -o $@ -c $<
 
-%.o: %.cpp
-	$(CC) $(CPPFLAGS) $(CXXFLAGS) -o $@ -c $<
+clean:
+	rm $(DST_OBJS) $(DST_TARGET) -f
 
-clean: $(TARGETS)
-	rm  *.o *.elf
+install: $(DST_TARGET)
+	mkdir -p $(DST_DIR)/bin
+	cp $< $(DST_DIR)/bin
