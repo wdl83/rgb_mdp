@@ -24,7 +24,6 @@ const char *const DEVICE = "device";
 const char *const MMAP = "mmap";
 
 const char *const ID = "id";
-const char *const LOCATION = "location";
 const char *const MMAP_ID = "mmap_id";
 const char *const SLAVE = "slave";
 const char *const STRIP_SIZE = "strip_size";
@@ -67,7 +66,6 @@ constexpr uint8_t FX_NOISE = 4 << 4;
 struct Device
 {
     std::string id_;
-    std::string location_;
     uint8_t slave_;
     std::string mmapId_;
     json mmap_;
@@ -79,11 +77,6 @@ struct Device
         vENSURE(device[ID].is_string(), TagFormatError, device.dump());
 
         id_ = device[ID].get<std::string>();
-
-        vENSURE(device.count(LOCATION), TagMissingError, device.dump());
-        vENSURE(device[LOCATION].is_string(), TagFormatError, device.dump());
-
-        location_ = device[LOCATION].get<std::string>();
 
         vENSURE(device.count(SLAVE), TagMissingError, device.dump());
         vENSURE(device[SLAVE].is_number(), TagFormatError, device.dump());
@@ -107,7 +100,6 @@ struct Device
     }
 
     const std::string &id() const {return id_;}
-    const std::string &location() const {return location_;}
     uint8_t slave() const {return slave_;}
 
     uint16_t addr(const char *tag, int offset = 0) const
@@ -178,7 +170,6 @@ void add(
 
     output[PAYLOAD].push_back(
         {
-            {DEVICE, device.location()},
             {SLAVE, device.slave()},
             {FCODE, FCODE_WR_BYTES},
             {ADDR, addr},
@@ -263,6 +254,11 @@ json parse(const DeviceSeq &deviceSeq, const json &input)
 
     const auto id = input[ID].get<std::string>();
 
+    vENSURE(input.count(SERVICE), TagMissingError, input.dump());
+    vENSURE(input[SERVICE].is_string(), TagFormatError, input.dump());
+
+    const auto service = input[SERVICE].get<std::string>();
+
     auto device =
         std::find_if(
             std::begin(deviceSeq), std::end(deviceSeq),
@@ -278,7 +274,7 @@ json parse(const DeviceSeq &deviceSeq, const json &input)
     json output
     {
         {ID, id},
-        {SERVICE, "modbus_master_/" + device->location()},
+        {SERVICE, service},
         {
             PAYLOAD, json::array()
         }
