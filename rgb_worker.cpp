@@ -309,7 +309,7 @@ json parse(const DeviceSeq &deviceSeq, const json &input)
         addU8(*device, input, output, NOISE_SCALE);
         add(*device, output, device->addr(FLAGS), FX_NOISE | FLAG_UPDATED, FLAGS);
     }
-    else if("off" == mode)
+    else if("off" == mode || "on" == mode)
     {
         add(*device, output, device->addr(FLAGS), FX_NONE | FLAG_UPDATED, FLAGS);
     }
